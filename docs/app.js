@@ -3,24 +3,33 @@
 
   const state = {
     activeTab: 'player',
+    activeBookId: 'ford-fiesta-fusion',
+    builtInFordBook: null,
+    uploadedBooks: [], // Loaded from IndexedDB
+    loadedPdfDocs: new Map(), // bookId -> PDFDocumentProxy
     guides: [],
     currentGuide: null,
     playerMode: 'video', // 'video' | 'steps'
     currentChapterIdx: 0,
     currentStepInChapterIdx: 0,
     manualStepOverride: false,
+    hfSpeakingTts: false,
+    hfTtsTimer: null,
     checkedItems: {},
-    catalog: [],
+    baseCatalog: [],
     catalogFilter: 'all',
     manual: null,
+    activePagesText: null,
     bookSidebarMode: 'toc', // 'toc' | 'diagrams'
     currentPdfPage: 5,
+    totalPdfPages: 385,
     pdfZoom: 100,
     showExtractedText: false,
     dtcCategory: 'ALL',
     selectedMileage: 'km20',
     speechRec: null,
-    voiceListening: false
+    voiceListening: false,
+    pendingPdfFile: null
   };
 
   try {
@@ -31,10 +40,14 @@
 
   const $ = (id) => document.getElementById(id);
   let hasLiveBackend = true;
-  let staticPagesText = null;
+  let fordStaticPagesText = null;
+  let cinemaPlayer = null;
 
   function assetUrl(u) {
     if (!u) return '';
+    if (String(u).startsWith('data:') || String(u).startsWith('blob:') || String(u).startsWith('http')) {
+      return u;
+    }
     return String(u).replace(/^\//, './');
   }
 
@@ -53,6 +66,99 @@
       .replace(/"/g, '&quot;');
   }
 
+  function stopAllPlayback() {
+    const v = $('mainVideoPlayer');
+    const a = $('hfStageAudio');
+    if (v && !v.paused) v.pause();
+    if (a && !a.paused) a.pause();
+    if (cinemaPlayer && cinemaPlayer.playing) cinemaPlayer.pause();
+    if (window.ManualBookEngine) {
+      window.ManualBookEngine.SpeechEngine.stop();
+    }
+    state.hfSpeakingTts = false;
+    if (state.hfTtsTimer) {
+      clearInterval(state.hfTtsTimer);
+      state.hfTtsTimer = null;
+    }
+    updateHfPlayButtonLabel();
+  }
+
+  /* =========================================================================
+   * Active Book Switching (Built-in Ford <-> Any User-Uploaded PDF Book)
+   * ========================================================================= */
+  function renderActiveBookSelect() {
+    const sel = $('activeBookSelect');
+    if (!sel) return;
+    const options = [
+      `<option value="ford-fiesta-fusion" ${state.activeBookId === 'ford-fiesta-fusion' ? 'selected' : ''}>Ford Fiesta / Fusion (385 стр.)</option>`,
+      ...state.uploadedBooks.map((b) => `
+        <option value="${escapeHtml(b.id)}" ${state.activeBookId === b.id ? 'selected' : ''}>
+          📘 ${escapeHtml(b.fullTitle || (b.brand + ' ' + b.model))} (${b.pagesCount} стр.)
+        </option>
+      `)
+    ];
+    sel.innerHTML = options.join('');
+    const totalActiveBooks = 1 + state.uploadedBooks.length;
+    $('catalogCountBadge').textContent = `Книг: ${totalActiveBooks}`;
+  }
+
+  async function activateBook(bookId) {
+    stopAllPlayback();
+
+    if (bookId === 'ford-fiesta-fusion' || !state.uploadedBooks.some((b) => b.id === bookId)) {
+      state.activeBookId = 'ford-fiesta-fusion';
+      state.guides = state.builtInFordBook.guides;
+      state.manual = state.builtInFordBook.manual;
+      state.activePagesText = fordStaticPagesText;
+      state.totalPdfPages = 385;
+      state.currentPdfPage = 5;
+
+      $('playerHeroTitle').textContent = 'Короткие видеоруководства с закадровым голосом';
+      $('playerHeroSub').innerHTML = 'Реальные пошаговые иллюстрации, моменты затяжки и предупреждения из руководства <strong>Ford Fiesta / Fusion</strong> с дикторской озвучкой и режимом «Свободные руки» для работы в боксе или в поле.';
+      $('guidesCountBadge').textContent = `${state.guides.length} MP4`;
+    } else {
+      const userBook = state.uploadedBooks.find((b) => b.id === bookId);
+      state.activeBookId = userBook.id;
+      state.guides = userBook.guides || [];
+      state.manual = userBook.manual;
+      state.activePagesText = userBook.pagesText || [];
+      state.totalPdfPages = userBook.pagesCount || 1;
+      state.currentPdfPage = 1;
+
+      const titleFull = escapeHtml(userBook.fullTitle || `${userBook.brand} ${userBook.model}`);
+      $('playerHeroTitle').textContent = `Видеогиды по книге: ${userBook.fullTitle || (userBook.brand + ' ' + userBook.model)}`;
+      $('playerHeroSub').innerHTML = `Автоматически оцифровано из вашего файла <strong>${escapeHtml(userBook.fileName)}</strong> (${userBook.pagesCount} стр.): выделены операции ремонта, иллюстрации и синтез дикторской озвучки.`;
+      $('guidesCountBadge').textContent = `${state.guides.length} гид.`;
+    }
+
+    $('bookPagesBadge').textContent = `${state.totalPdfPages} стр.`;
+    $('pdfPageInput').max = String(state.totalPdfPages);
+    $('pdfTotalPagesLabel').textContent = `из ${state.totalPdfPages}`;
+    $('dtcCountBadge').textContent = state.manual && state.manual.dtcCodes ? state.manual.dtcCodes.length : 0;
+
+    renderActiveBookSelect();
+    if (state.guides.length > 0) {
+      selectGuide(state.guides[0]);
+    }
+    renderCatalog();
+    renderBookSidebar();
+    renderDtcTable();
+    renderSpecsTab();
+    loadPdfPage(state.currentPdfPage);
+  }
+
+  async function ensureUploadedPdfDoc(bookId) {
+    if (state.loadedPdfDocs.has(bookId)) {
+      return state.loadedPdfDocs.get(bookId);
+    }
+    if (!window.ManualBookEngine) return null;
+    const blob = await window.ManualBookEngine.BookStorage.getBookPdfBlob(bookId);
+    if (!blob) return null;
+    const pdfDoc = await window.ManualBookEngine.openPdfFromBlob(blob);
+    state.loadedPdfDocs.set(bookId, pdfDoc);
+    return pdfDoc;
+  }
+
   /* Navigation */
   function switchTab(tabId) {
     state.activeTab = tabId;
@@ -63,15 +169,12 @@
       panel.classList.toggle('active', panel.id === `tab-${tabId}`);
     });
     if (tabId !== 'player') {
-      const v = $('mainVideoPlayer');
-      const a = $('hfStageAudio');
-      if (v && !v.paused) v.pause();
-      if (a && !a.paused) a.pause();
+      stopAllPlayback();
     }
   }
 
   function openPdfPageInViewer(pdfPage) {
-    const p = Math.min(385, Math.max(1, parseInt(pdfPage, 10) || 1));
+    const p = Math.min(state.totalPdfPages, Math.max(1, parseInt(pdfPage, 10) || 1));
     switchTab('book');
     loadPdfPage(p);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -107,10 +210,7 @@
   }
 
   function selectGuide(guide) {
-    const v = $('mainVideoPlayer');
-    const a = $('hfStageAudio');
-    if (v) v.pause();
-    if (a) a.pause();
+    stopAllPlayback();
 
     state.currentGuide = guide;
     state.currentChapterIdx = 0;
@@ -119,12 +219,13 @@
 
     renderGuideStrip();
     renderVideoPlayer(guide);
-    renderHandsFreeStage();
+    renderHandsFreeStage(false);
     renderChaptersList();
     renderSidePassport(guide);
   }
 
   function setPlayerMode(mode) {
+    stopAllPlayback();
     state.playerMode = mode;
     $('modeVideoBtn').classList.toggle('active', mode === 'video');
     $('modeStepBtn').classList.toggle('active', mode === 'steps');
@@ -132,26 +233,40 @@
     $('videoExtraControls').classList.toggle('hidden', mode !== 'video');
     $('stepsModeContainer').classList.toggle('hidden', mode !== 'steps');
 
-    const v = $('mainVideoPlayer');
-    const a = $('hfStageAudio');
-    if (mode === 'video') {
-      if (a && !a.paused) a.pause();
-    } else {
-      if (v && !v.paused) v.pause();
-      renderHandsFreeStage();
+    if (mode === 'steps') {
+      renderHandsFreeStage(false);
+    } else if (state.currentGuide) {
+      renderVideoPlayer(state.currentGuide);
     }
   }
 
   function renderVideoPlayer(guide) {
-    const v = $('mainVideoPlayer');
-    v.src = assetUrl(guide.videoUrl);
-    v.poster = assetUrl(guide.posterUrl);
-    v.load();
-    v.playbackRate = parseFloat($('videoSpeedSelect').value || '1');
+    const isSynth = !!guide.isSynthesizedVideo;
+    $('mp4VideoWrapper').classList.toggle('hidden', isSynth);
+    $('synthVideoWrap').classList.toggle('hidden', !isSynth);
+    $('downloadMp4Link').classList.toggle('hidden', isSynth);
+    $('exportWebmBtn').classList.toggle('hidden', !isSynth);
 
-    const dl = $('downloadMp4Link');
-    dl.href = assetUrl(guide.videoUrl);
-    dl.setAttribute('download', `ford_${guide.slug}.mp4`);
+    const rate = parseFloat($('videoSpeedSelect').value || '1');
+
+    if (!isSynth) {
+      const v = $('mainVideoPlayer');
+      v.src = assetUrl(guide.videoUrl);
+      v.poster = assetUrl(guide.posterUrl);
+      v.load();
+      v.playbackRate = rate;
+
+      const dl = $('downloadMp4Link');
+      dl.href = assetUrl(guide.videoUrl);
+      dl.setAttribute('download', `ford_${guide.slug}.mp4`);
+    } else if (cinemaPlayer) {
+      cinemaPlayer.setRate(rate);
+      cinemaPlayer.loadGuide(guide);
+      $('synthScrubber').max = String(guide.totalDuration || 30);
+      $('synthScrubber').value = '0';
+      $('synthTimeLabel').textContent = `0:00 / ${fmtTime(guide.totalDuration)}`;
+      $('synthPlayBtn').textContent = '▶ Пуск с озвучкой';
+    }
 
     const ch0 = guide.chapters[0];
     $('liveVideoTranscriptText').textContent = ch0 ? ch0.voiceScript : '';
@@ -187,11 +302,16 @@
         state.manualStepOverride = false;
 
         if (state.playerMode === 'video') {
-          const v = $('mainVideoPlayer');
           const targetCh = g.chapters[idx];
-          if (targetCh) {
-            v.currentTime = targetCh.startTime + 0.05;
-            v.play().catch(() => {});
+          if (g.isSynthesizedVideo && cinemaPlayer && targetCh) {
+            cinemaPlayer.seek(targetCh.startTime + 0.05);
+            cinemaPlayer.play();
+          } else {
+            const v = $('mainVideoPlayer');
+            if (targetCh) {
+              v.currentTime = targetCh.startTime + 0.05;
+              v.play().catch(() => {});
+            }
           }
           highlightChapterRow(idx);
         } else {
@@ -212,7 +332,7 @@
     }
   }
 
-  /* Hands-Free Step Mode */
+  /* Hands-Free Step Mode (Supports both MP3 files & Browser TTS for Uploaded PDFs) */
   function renderHandsFreeStage(autoPlay = false) {
     const g = state.currentGuide;
     if (!g) return;
@@ -230,7 +350,6 @@
     $('hfChapterMetric').textContent = ch.keyMetric;
     $('hfChapterWarning').textContent = ch.warning;
 
-    // Step thumbnails
     const thumbs = $('hfStepThumbs');
     thumbs.innerHTML = ch.steps.map((st, sIdx) => `
       <button class="hf-thumb-btn ${sIdx === state.currentStepInChapterIdx ? 'active' : ''}" data-sidx="${sIdx}" title="${escapeHtml(st.caption)}">
@@ -251,17 +370,78 @@
     $('hfNextStageBtn').disabled = state.currentChapterIdx >= g.chapters.length - 1;
 
     const audio = $('hfStageAudio');
-    const relAudio = assetUrl(ch.audioUrl);
-    if (!audio.getAttribute('data-cur') || audio.getAttribute('data-cur') !== relAudio) {
-      audio.setAttribute('data-cur', relAudio);
-      audio.src = relAudio;
+    if (!ch.synthesizedTts && ch.audioUrl) {
+      const relAudio = assetUrl(ch.audioUrl);
+      if (audio.getAttribute('data-cur') !== relAudio) {
+        audio.setAttribute('data-cur', relAudio);
+        audio.src = relAudio;
+      }
+    } else {
+      audio.removeAttribute('src');
+      audio.setAttribute('data-cur', '');
     }
-    updateHfPlayButtonLabel();
+
     highlightChapterRow(state.currentChapterIdx);
 
     if (autoPlay) {
-      audio.currentTime = 0;
+      playCurrentHandsFreeStage(true);
+    } else {
+      updateHfPlayButtonLabel();
+    }
+  }
+
+  function playCurrentHandsFreeStage(restart = false) {
+    const g = state.currentGuide;
+    if (!g) return;
+    const ch = g.chapters[state.currentChapterIdx];
+    if (!ch) return;
+
+    if (ch.synthesizedTts && window.ManualBookEngine) {
+      if (state.hfTtsTimer) clearInterval(state.hfTtsTimer);
+      state.hfSpeakingTts = true;
+      updateHfPlayButtonLabel();
+
+      const startedAt = Date.now();
+      const durMs = Math.max(4000, (ch.duration || 16) * 1000);
+      state.hfTtsTimer = setInterval(() => {
+        if (!state.hfSpeakingTts || state.manualStepOverride) return;
+        const ratio = Math.min(0.999, (Date.now() - startedAt) / durMs);
+        const targetStep = Math.floor(ratio * ch.steps.length);
+        if (targetStep !== state.currentStepInChapterIdx) {
+          state.currentStepInChapterIdx = targetStep;
+          updateHandsFreeStepOnly();
+        }
+      }, 300);
+
+      const rate = parseFloat($('videoSpeedSelect').value || '1');
+      window.ManualBookEngine.SpeechEngine.speak(ch.voiceScript, {
+        rate,
+        onEnd: () => {
+          state.hfSpeakingTts = false;
+          if (state.hfTtsTimer) clearInterval(state.hfTtsTimer);
+          updateHfPlayButtonLabel();
+          if (!$('hfAutoPauseToggle').checked) {
+            goNextStage(true);
+          }
+        }
+      });
+    } else {
+      const audio = $('hfStageAudio');
+      if (restart) audio.currentTime = 0;
       audio.play().catch(() => {});
+    }
+  }
+
+  function pauseCurrentHandsFreeStage() {
+    const g = state.currentGuide;
+    const ch = g && g.chapters[state.currentChapterIdx];
+    if (ch && ch.synthesizedTts && window.ManualBookEngine) {
+      window.ManualBookEngine.SpeechEngine.stop();
+      state.hfSpeakingTts = false;
+      if (state.hfTtsTimer) clearInterval(state.hfTtsTimer);
+      updateHfPlayButtonLabel();
+    } else {
+      $('hfStageAudio').pause();
     }
   }
 
@@ -283,11 +463,8 @@
   function updateHfPlayButtonLabel() {
     const audio = $('hfStageAudio');
     const btn = $('hfPlayPauseBtn');
-    if (!audio || audio.paused) {
-      btn.textContent = '🔊 Озвучить этап';
-    } else {
-      btn.textContent = '⏸ Пауза озвучки';
-    }
+    const isPlaying = state.hfSpeakingTts || (audio && !audio.paused && audio.src);
+    btn.textContent = isPlaying ? '⏸ Пауза озвучки' : '🔊 Озвучить этап';
   }
 
   function renderSidePassport(guide) {
@@ -309,9 +486,10 @@
       </div>
     `).join('');
 
+    const prefix = `${state.activeBookId}:${guide.slug}`;
     const allItems = [
-      ...guide.tools.map((t) => ({ id: `${guide.slug}:tool:${t}`, label: t })),
-      ...guide.consumables.map((c) => ({ id: `${guide.slug}:cons:${c}`, label: c }))
+      ...guide.tools.map((t) => ({ id: `${prefix}:tool:${t}`, label: t })),
+      ...guide.consumables.map((c) => ({ id: `${prefix}:cons:${c}`, label: c }))
     ];
 
     const renderChecklistRows = () => {
@@ -341,13 +519,36 @@
     renderChecklistRows();
   }
 
-  /* Catalog Tab */
+  /* =========================================================================
+   * Catalog Tab (Upload Card + User Uploaded Books + Built-in & B2B Fleet)
+   * ========================================================================= */
   function renderCatalog() {
-    const items = state.catalog.filter((it) =>
+    const combined = [
+      ...state.uploadedBooks.map((ub) => ({
+        ...ub,
+        isUserBook: true
+      })),
+      ...state.baseCatalog
+    ];
+
+    const items = combined.filter((it) =>
       state.catalogFilter === 'all' ? true : it.category === state.catalogFilter
     );
-    $('catalogGrid').innerHTML = items.map((it) => {
-      const isActive = it.status === 'active';
+
+    const uploadCardHtml = `
+      <div class="cat-card upload-catalog-card" id="catalogDropCard">
+        <div style="font-size:2.3rem;margin-bottom:8px;">📥</div>
+        <h3 style="font-size:1.1rem;margin-bottom:6px;">+ Добавить новую книгу по ремонту (PDF)</h3>
+        <p style="font-size:0.85rem;color:#94a3b8;max-width:290px;margin-bottom:14px;">
+          Нажмите или перетащите сюда <strong>.pdf</strong>-мануал по любому автомобилю или спецтехнике для автоматического создания видеогидов с озвучкой.
+        </p>
+        <span class="btn-primary">Выбрать PDF-файл</span>
+      </div>
+    `;
+
+    const cardsHtml = items.map((it) => {
+      const isCurrentlySelected = it.id === state.activeBookId;
+      const isReadyBook = it.status === 'active';
       const coverHtml = it.coverUrl
         ? `<img class="cat-cover" src="${escapeHtml(assetUrl(it.coverUrl))}" alt="${escapeHtml(it.model)}" />`
         : `<div class="cat-placeholder-cover"><span>${escapeHtml(it.brand)}</span><small style="color:#94a3b8;font-weight:600;margin-top:6px;">PDF B2B</small></div>`;
@@ -355,13 +556,27 @@
         ? `<div class="cat-topics"><strong>Востребованные видеоузлы для бригад:</strong><ul>${it.sampleTopics.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul></div>`
         : '';
 
+      let actionButtons = '';
+      if (isReadyBook) {
+        actionButtons = `
+          <div style="display:flex;gap:8px;">
+            <button class="btn-primary" style="flex:1;" data-activate-book="${escapeHtml(it.id)}">
+              ${isCurrentlySelected ? '▶ Открыть видеогиды (Активна)' : '▶ Выбрать книгу и открыть гиды'}
+            </button>
+            ${it.isUserBook ? `<button class="btn-ghost-sm" data-delete-book="${escapeHtml(it.id)}" title="Удалить книгу из памяти браузера">🗑</button>` : ''}
+          </div>
+        `;
+      } else {
+        actionButtons = `<button class="btn-secondary" style="width:100%;" data-sim-model="${escapeHtml(it.brand + ' ' + it.model)}">📥 Загрузить PDF для этой техники</button>`;
+      }
+
       return `
-        <div class="cat-card ${isActive ? 'active-manual' : ''}">
+        <div class="cat-card ${isCurrentlySelected ? 'active-manual' : ''}">
           <div>
             <div class="cat-card-top">
               ${coverHtml}
               <div>
-                <span class="cat-status-badge ${isActive ? 'active' : 'pipeline'}">${escapeHtml(it.statusLabel)}</span>
+                <span class="cat-status-badge ${isReadyBook ? 'active' : 'pipeline'}">${escapeHtml(it.statusLabel)}</span>
                 <div style="font-size:0.75rem;color:#94a3b8;">${escapeHtml(it.categoryLabel)}</div>
                 <h3 style="font-size:1.06rem;margin:3px 0 6px;">${escapeHtml(it.brand)} — ${escapeHtml(it.model)}</h3>
                 <div style="font-size:0.8rem;color:#cbd5e1;">${escapeHtml(it.engines)}</div>
@@ -377,31 +592,74 @@
               <span>${it.diagramsCount} схем</span>
               <span>${it.dtcCount} кодов</span>
             </div>
-            ${isActive
-              ? `<button class="btn-primary" style="width:100%;" data-open-ford="1">▶ Открыть видеогиды и книгу Ford</button>`
-              : `<button class="btn-secondary" style="width:100%;" data-sim-model="${escapeHtml(it.brand + ' ' + it.model)}">⚙ Показать генерацию видео из мануала</button>`
-            }
+            ${actionButtons}
           </div>
         </div>
       `;
     }).join('');
 
-    $('catalogGrid').querySelectorAll('[data-open-ford]').forEach((btn) => {
-      btn.addEventListener('click', () => switchTab('player'));
+    $('catalogGrid').innerHTML = uploadCardHtml + cardsHtml;
+
+    const dropCard = $('catalogDropCard');
+    if (dropCard) {
+      dropCard.addEventListener('click', () => openUploadModal());
+      dropCard.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropCard.classList.add('dragover');
+      });
+      dropCard.addEventListener('dragleave', () => dropCard.classList.remove('dragover'));
+      dropCard.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropCard.classList.remove('dragover');
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) {
+          openUploadModal();
+          handleFileChosen(f);
+        }
+      });
+    }
+
+    $('catalogGrid').querySelectorAll('[data-activate-book]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await activateBook(btn.dataset.activateBook);
+        switchTab('player');
+      });
     });
+
+    $('catalogGrid').querySelectorAll('[data-delete-book]').forEach((btn) => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const delId = btn.dataset.deleteBook;
+        if (!confirm('Удалить эту загруженную книгу из библиотеки браузера?')) return;
+        await window.ManualBookEngine.BookStorage.deleteBook(delId);
+        state.loadedPdfDocs.delete(delId);
+        state.uploadedBooks = state.uploadedBooks.filter((b) => b.id !== delId);
+        if (state.activeBookId === delId) {
+          await activateBook('ford-fiesta-fusion');
+        } else {
+          renderActiveBookSelect();
+          renderCatalog();
+        }
+      });
+    });
+
     $('catalogGrid').querySelectorAll('[data-sim-model]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        openPipelineDemo(btn.dataset.simModel);
+        openUploadModal(btn.dataset.simModel);
       });
     });
   }
 
-  /* Book TOC + Wiring Diagrams + High-DPI PDF Viewer */
+  /* =========================================================================
+   * Book TOC + Wiring Diagrams + High-DPI PDF Viewer (Ford + Uploaded PDFs)
+   * ========================================================================= */
   function renderBookSidebar() {
     if (!state.manual) return;
     const filter = ($('bookSidebarFilter').value || '').trim().toLowerCase();
 
-    // TOC
+    $('bsTabToc').textContent = `Оглавление (${state.manual.sections.length} разд.)`;
+    $('bsTabDiagrams').textContent = `Схемы (${state.manual.wiringDiagrams.length})`;
+
     const tocHtml = state.manual.sections.map((sec) => {
       const filteredItems = filter
         ? sec.items.filter((i) => i.title.toLowerCase().includes(filter) || sec.title.toLowerCase().includes(filter))
@@ -430,11 +688,10 @@
       el.addEventListener('click', () => loadPdfPage(parseInt(el.dataset.pdfp, 10)));
     });
 
-    // Wiring diagrams
     const diags = state.manual.wiringDiagrams.filter((d) =>
       !filter || (`${d.code} ${d.title} ${d.components}`).toLowerCase().includes(filter)
     );
-    $('bookDiagramsContainer').innerHTML = diags.map((d) => `
+    $('bookDiagramsContainer').innerHTML = diags.length ? diags.map((d) => `
       <div class="diagram-item" data-pdfp="${d.pdfPage}">
         <div style="display:flex;justify-content:space-between;">
           <strong>${escapeHtml(d.code)}. ${escapeHtml(d.title)}</strong>
@@ -442,18 +699,20 @@
         </div>
         <div style="font-size:0.76rem;color:#94a3b8;margin-top:3px;">${escapeHtml(d.components.slice(0, 140))}${d.components.length > 140 ? '…' : ''}</div>
       </div>
-    `).join('');
+    `).join('') : '<div style="padding:12px;color:#94a3b8;">В этой книге отдельных листов со словом «Схема» не выделено — используйте Оглавление или Поиск.</div>';
 
     $('bookDiagramsContainer').querySelectorAll('[data-pdfp]').forEach((el) => {
       el.addEventListener('click', () => loadPdfPage(parseInt(el.dataset.pdfp, 10)));
     });
   }
 
-  function loadPdfPage(pdfPage) {
-    const p = Math.min(385, Math.max(1, pdfPage || 1));
+  async function loadPdfPage(pdfPage) {
+    const p = Math.min(state.totalPdfPages, Math.max(1, pdfPage || 1));
     state.currentPdfPage = p;
     $('pdfPageInput').value = p;
-    $('bookPageNumberHint').textContent = p > 1 ? `(Стр. книги: ${p - 1})` : '(Обложка)';
+    $('bookPageNumberHint').textContent = state.activeBookId === 'ford-fiesta-fusion'
+      ? (p > 1 ? `(Стр. книги: ${p - 1})` : '(Обложка)')
+      : `(Стр. ${p} из ${state.totalPdfPages})`;
 
     const spinner = $('pdfLoadingSpinner');
     const img = $('pdfRenderedImage');
@@ -461,6 +720,30 @@
     spinner.classList.remove('hidden');
     if (iframe) iframe.classList.add('hidden');
     img.classList.remove('hidden');
+
+    if (state.activeBookId !== 'ford-fiesta-fusion') {
+      // Render directly from IndexedDB PDF via PDF.js!
+      try {
+        const pdfDoc = await ensureUploadedPdfDoc(state.activeBookId);
+        if (pdfDoc) {
+          const scale = state.pdfZoom >= 140 ? 1.85 : 1.4;
+          const dataUrl = await window.ManualBookEngine.renderPageToDataUrl(pdfDoc, p, {
+            scale,
+            maxWidth: 1500,
+            quality: 0.88
+          });
+          img.onload = () => spinner.classList.add('hidden');
+          img.src = dataUrl;
+        } else {
+          spinner.classList.add('hidden');
+        }
+      } catch (_) {
+        spinner.classList.add('hidden');
+      }
+      applyPdfZoom();
+      if (state.showExtractedText) fetchPageText(p);
+      return;
+    }
 
     const dpi = state.pdfZoom >= 140 ? 200 : 150;
     img.onload = () => spinner.classList.add('hidden');
@@ -495,11 +778,27 @@
 
   async function fetchPageText(p) {
     try {
-      if (!hasLiveBackend) {
-        if (!staticPagesText) {
-          staticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+      if (state.activeBookId !== 'ford-fiesta-fusion') {
+        const entry = state.activePagesText && state.activePagesText[p - 1];
+        if (entry && entry.text) {
+          $('pageExtractedTextContent').textContent = entry.text;
+          return;
         }
-        const entry = staticPagesText[p - 1];
+        const pdfDoc = await ensureUploadedPdfDoc(state.activeBookId);
+        if (pdfDoc) {
+          const page = await pdfDoc.getPage(p);
+          const tc = await page.getTextContent();
+          const str = (tc.items || []).map((i) => i.str).join(' ').trim();
+          $('pageExtractedTextContent').textContent = str || '(На этой странице только скан/изображение без текстового слоя)';
+          return;
+        }
+      }
+
+      if (!hasLiveBackend) {
+        if (!fordStaticPagesText) {
+          fordStaticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+        }
+        const entry = fordStaticPagesText[p - 1];
         $('pageExtractedTextContent').textContent = (entry && entry.text) || '(На этой странице только изображение без текстового слоя)';
         return;
       }
@@ -522,7 +821,7 @@
       .replace(/О/g, '0');
     const qLower = rawQ.toLowerCase();
 
-    const filtered = state.manual.dtcCodes.filter((d) => {
+    const filtered = (state.manual.dtcCodes || []).filter((d) => {
       if (state.dtcCategory !== 'ALL' && d.category !== state.dtcCategory) return false;
       if (!rawQ) return true;
       return d.code.toUpperCase().includes(normCodeQ) || d.description.toLowerCase().includes(qLower);
@@ -537,7 +836,7 @@
           <button class="btn-ghost-sm" data-dtcpdf="${d.pdfPage}">Стр. ${d.bookPage}</button>
         </td>
       </tr>
-    `).join('') || `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Коды по запросу не найдены</td></tr>`;
+    `).join('') || `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Коды ошибок по фильтру не найдены (используйте глобальный поиск / в шапке для поиска по тексту страниц)</td></tr>`;
 
     $('dtcTableBody').querySelectorAll('[data-dtcpdf]').forEach((btn) => {
       btn.addEventListener('click', () => openPdfPageInViewer(btn.dataset.dtcpdf));
@@ -547,11 +846,10 @@
   /* Specs, Maintenance, Fluids, Lamps */
   function renderSpecsTab() {
     if (!state.manual) return;
-
     renderMaintenanceGrid();
     renderTorquesTable();
 
-    $('fluidsTableBody').innerHTML = state.manual.fluids.map((f) => `
+    $('fluidsTableBody').innerHTML = (state.manual.fluids || []).map((f) => `
       <tr>
         <td><strong>${escapeHtml(f.node)}</strong></td>
         <td><span class="torque-val-pill">${escapeHtml(f.volume)}</span></td>
@@ -559,7 +857,7 @@
       </tr>
     `).join('');
 
-    $('lampsTableBody').innerHTML = state.manual.lamps.map((l) => `
+    $('lampsTableBody').innerHTML = (state.manual.lamps || []).map((l) => `
       <tr>
         <td>${escapeHtml(l.light)}</td>
         <td><span class="dtc-code-pill">${escapeHtml(l.type)}</span></td>
@@ -571,14 +869,15 @@
   function renderMaintenanceGrid() {
     if (!state.manual) return;
     const kmKey = state.selectedMileage;
-    $('maintenanceCardsGrid').innerHTML = state.manual.maintenance.map((m) => {
+    $('maintenanceCardsGrid').innerHTML = (state.manual.maintenance || []).map((m) => {
       const action = m[kmKey] || 'Проверка';
       const isReplace = action.toLowerCase().includes('замена');
+      const targetPdfP = state.activeBookId === 'ford-fiesta-fusion' ? m.page + 1 : m.page;
       return `
         <div class="maint-card ${isReplace ? 'replace' : 'inspect'}">
           <div>
             <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px;">${escapeHtml(m.item)}</div>
-            <button class="btn-ghost-sm" style="padding:2px 7px;font-size:0.74rem;" data-maint-page="${m.page + 1}">Стр. ${m.page}</button>
+            <button class="btn-ghost-sm" style="padding:2px 7px;font-size:0.74rem;" data-maint-page="${targetPdfP}">Стр. ${m.page}</button>
           </div>
           <span class="maint-badge ${isReplace ? 'replace' : 'inspect'}">${escapeHtml(action)}</span>
         </div>
@@ -593,7 +892,7 @@
   function renderTorquesTable() {
     if (!state.manual) return;
     const q = ($('torqueFilterInput').value || '').trim().toLowerCase();
-    const rows = state.manual.torques.filter((t) =>
+    const rows = (state.manual.torques || []).filter((t) =>
       !q || (`${t.group} ${t.part} ${t.nm}`).toLowerCase().includes(q)
     );
     $('torquesTableBody').innerHTML = rows.map((t) => `
@@ -605,7 +904,7 @@
     `).join('');
   }
 
-  /* Global Instant Search */
+  /* Global Instant Search (Searches Active Book — Ford OR Uploaded PDF) */
   let searchTimer = null;
   function setupGlobalSearch() {
     const input = $('globalSearchInput');
@@ -620,7 +919,7 @@
       }
       searchTimer = setTimeout(async () => {
         try {
-          if (hasLiveBackend) {
+          if (state.activeBookId === 'ford-fiesta-fusion' && hasLiveBackend) {
             const res = await fetch(`./api/search?q=${encodeURIComponent(q)}`);
             if (res.ok) {
               const data = await res.json();
@@ -628,14 +927,17 @@
               return;
             }
           }
-          // Static fallback search across guides, TOC, DTC, wiring diagrams, and all 385 pages
-          if (!staticPagesText) {
+
+          let pagesPool = state.activePagesText;
+          if (state.activeBookId === 'ford-fiesta-fusion' && !pagesPool) {
             try {
-              staticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+              fordStaticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+              pagesPool = fordStaticPagesText;
             } catch (_) {
-              staticPagesText = [];
+              pagesPool = [];
             }
           }
+
           const ql = q.toLowerCase();
           const cyrNorm = q.toUpperCase().replace(/Р/g, 'P').replace(/В/g, 'B').replace(/С/g, 'C').replace(/О/g, '0');
           const tocHits = [];
@@ -647,7 +949,7 @@
             });
           });
           const pageHits = [];
-          for (const pg of staticPagesText) {
+          for (const pg of (pagesPool || [])) {
             if (!pg.text) continue;
             const idx = pg.text.toLowerCase().indexOf(ql);
             if (idx !== -1) {
@@ -678,7 +980,7 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
         e.preventDefault();
         input.focus();
       } else if (e.key === 'Escape') {
@@ -698,7 +1000,7 @@
     dropdown.classList.remove('hidden');
 
     if (total === 0) {
-      body.innerHTML = `<div style="color:#94a3b8;padding:12px;">По запросу ничего не найдено. Попробуйте другой узел (например: «термостат», «генератор», «сцепление», «P0300»).</div>`;
+      body.innerHTML = `<div style="color:#94a3b8;padding:12px;">По запросу ничего не найдено в активной книге.</div>`;
       return;
     }
 
@@ -707,7 +1009,7 @@
     if (data.guides.length) {
       parts.push(`
         <div class="search-group">
-          <h4>🎬 Готовые озвученные видеогиды (${data.guides.length})</h4>
+          <h4>🎬 Озвученные видеогиды (${data.guides.length})</h4>
           ${data.guides.map((g) => `
             <div class="search-hit-item" data-hit-guide="${escapeHtml(g.slug)}">
               <div><strong>${escapeHtml(g.title)}</strong><div class="search-hit-snippet">Видео с закадровым голосом • Стр. ${escapeHtml(g.bookPages)}</div></div>
@@ -735,11 +1037,11 @@
     if (data.diagrams.length) {
       parts.push(`
         <div class="search-group">
-          <h4>🔌 Цветные электросхемы (${data.diagrams.length})</h4>
+          <h4>🔌 Схемы (${data.diagrams.length})</h4>
           ${data.diagrams.map((w) => `
             <div class="search-hit-item" data-hit-pdf="${w.pdfPage}">
               <div><strong>${escapeHtml(w.code)}. ${escapeHtml(w.title)}</strong><div class="search-hit-snippet">${escapeHtml(w.components.slice(0, 150))}…</div></div>
-              <span class="btn-ghost-sm">Схема с.${w.bookPage}</span>
+              <span class="btn-ghost-sm">Стр. ${w.bookPage}</span>
             </div>
           `).join('')}
         </div>
@@ -763,10 +1065,10 @@
     if (data.pages.length) {
       parts.push(`
         <div class="search-group">
-          <h4>📄 Полнотекстовые совпадения по 385 страницам (${data.pages.length})</h4>
+          <h4>📄 Совпадения по тексту страниц (${data.pages.length})</h4>
           ${data.pages.slice(0, 12).map((p) => `
             <div class="search-hit-item" data-hit-pdf="${p.pdfPage}">
-              <div><strong>Страница книги ${p.bookPage} (PDF ${p.pdfPage})</strong><div class="search-hit-snippet">${escapeHtml(p.snippet)}</div></div>
+              <div><strong>Страница PDF ${p.pdfPage}</strong><div class="search-hit-snippet">${escapeHtml(p.snippet)}</div></div>
               <span class="btn-ghost-sm">Открыть PDF</span>
             </div>
           `).join('')}
@@ -817,18 +1119,16 @@
 
     rec.onresult = (ev) => {
       const transcript = ev.results[ev.results.length - 1][0].transcript.toLowerCase();
-      const audio = $('hfStageAudio');
       if (transcript.includes('дальше') || transcript.includes('следующ')) {
         goNextStage(true);
       } else if (transcript.includes('назад') || transcript.includes('предыдущ')) {
         goPrevStage(true);
       } else if (transcript.includes('повтор')) {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
+        playCurrentHandsFreeStage(true);
       } else if (transcript.includes('пауз') || transcript.includes('стоп')) {
-        audio.pause();
-      } else if (transcript.includes('пуск') || transcript.includes('играй') || transcript.includes('дальше пой')) {
-        audio.play().catch(() => {});
+        pauseCurrentHandsFreeStage();
+      } else if (transcript.includes('пуск') || transcript.includes('играй')) {
+        playCurrentHandsFreeStage(false);
       }
     };
 
@@ -847,6 +1147,7 @@
 
   function goPrevStage(autoPlay = false) {
     if (!state.currentGuide || state.currentChapterIdx <= 0) return;
+    stopAllPlayback();
     state.currentChapterIdx--;
     state.currentStepInChapterIdx = 0;
     state.manualStepOverride = false;
@@ -855,16 +1156,113 @@
 
   function goNextStage(autoPlay = false) {
     if (!state.currentGuide || state.currentChapterIdx >= state.currentGuide.chapters.length - 1) return;
+    stopAllPlayback();
     state.currentChapterIdx++;
     state.currentStepInChapterIdx = 0;
     state.manualStepOverride = false;
     renderHandsFreeStage(autoPlay);
   }
 
-  /* B2B Pipeline Modal Simulation */
-  function openPipelineDemo(presetName) {
+  /* =========================================================================
+   * Real PDF Upload Modal & Processing Workflow
+   * ========================================================================= */
+  function openUploadModal(prefillModel) {
     $('pipelineModal').classList.remove('hidden');
-    if (presetName) runPipelineLog(presetName);
+    $('uploadProgressWrap').classList.add('hidden');
+    $('demoPipelineLog').classList.add('hidden');
+    if (prefillModel && typeof prefillModel === 'string') {
+      const parts = prefillModel.split(' ');
+      $('uploadBrandInput').value = parts[0] || '';
+      $('uploadModelInput').value = parts.slice(1).join(' ') || prefillModel;
+    }
+  }
+
+  function handleFileChosen(file) {
+    if (!file) return;
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (!isPdf) {
+      alert('Пожалуйста, выберите файл в формате .pdf');
+      return;
+    }
+    state.pendingPdfFile = file;
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    $('selectedFileLabel').textContent = `✅ Выбран файл: ${file.name} (${mb} МБ)`;
+    $('uploadDropzone').classList.add('has-file');
+    $('startProcessPdfBtn').disabled = false;
+
+    if (window.ManualBookEngine) {
+      const guessed = window.ManualBookEngine.guessBookNameFromFilename(file.name);
+      const words = guessed.split(' ');
+      if (!$('uploadBrandInput').value.trim()) {
+        $('uploadBrandInput').value = words[0] || 'Авто';
+      }
+      if (!$('uploadModelInput').value.trim()) {
+        $('uploadModelInput').value = words.slice(1).join(' ') || guessed;
+      }
+    }
+  }
+
+  async function runRealPdfUpload() {
+    const file = state.pendingPdfFile;
+    if (!file || !window.ManualBookEngine) return;
+
+    const btn = $('startProcessPdfBtn');
+    const progWrap = $('uploadProgressWrap');
+    const progFill = $('uploadProgressFill');
+    const progText = $('uploadProgressStageText');
+    const progPct = $('uploadProgressPct');
+
+    btn.disabled = true;
+    progWrap.classList.remove('hidden');
+    $('demoPipelineLog').classList.add('hidden');
+
+    try {
+      const userMeta = {
+        category: $('uploadCategorySelect').value || 'cars',
+        brand: $('uploadBrandInput').value.trim(),
+        model: $('uploadModelInput').value.trim(),
+        engines: $('uploadEnginesInput').value.trim()
+      };
+
+      const { bookRecord, pdfDoc } = await window.ManualBookEngine.processUploadedPdf(
+        file,
+        userMeta,
+        (pct, stageMsg) => {
+          progFill.style.width = `${pct}%`;
+          progPct.textContent = `${pct}%`;
+          progText.textContent = stageMsg;
+        }
+      );
+
+      state.loadedPdfDocs.set(bookRecord.id, pdfDoc);
+      state.uploadedBooks = [bookRecord, ...state.uploadedBooks.filter((b) => b.id !== bookRecord.id)];
+
+      // Optional non-blocking backup upload if backend server is running
+      if (hasLiveBackend) {
+        fetch(`./api/books/upload?name=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: file
+        }).catch(() => {});
+      }
+
+      // Reset modal state & activate the newly uploaded book immediately!
+      state.pendingPdfFile = null;
+      $('pdfUploadFileInput').value = '';
+      $('selectedFileLabel').textContent = 'Перетащите PDF-файл сюда или нажмите кнопку ниже';
+      $('uploadDropzone').classList.remove('has-file');
+      $('uploadBrandInput').value = '';
+      $('uploadModelInput').value = '';
+      $('uploadEnginesInput').value = '';
+      $('pipelineModal').classList.add('hidden');
+
+      await activateBook(bookRecord.id);
+      switchTab('player');
+    } catch (err) {
+      console.error('Ошибка обработки PDF:', err);
+      progText.textContent = `Ошибка чтения PDF: ${err && err.message ? err.message : 'поврежденный или защищенный паролем файл'}`;
+      btn.disabled = false;
+    }
   }
 
   function runPipelineLog(title) {
@@ -875,25 +1273,85 @@
       `[1/4] Загрузка документа «${title}» — выделение текстового слоя, таблиц и координат иллюстраций…`,
       `[2/4] Технический разбор узлов: привязка моментов затяжки (Н·м), давлений МПа и предупреждений безопасности к шагам…`,
       `[3/4] Генерация дикторского сценария без аббревиатур и синтез русской голосовой дорожки…`,
-      `[4/4] Сборка коротких HD MP4-видеокарточек с телеметрией и пошагового плеера «Свободные руки» — ГОТОВО! (Пример уже работает во вкладке «Видеогиды» на базе книги Ford Fiesta/Fusion)`
+      `[4/4] Сборка HD-видеокарточек с телеметрией и плеера «Свободные руки» — выберите любой реальный .pdf выше, чтобы загрузить свою книгу!`
     ];
     steps.forEach((line, i) => {
       setTimeout(() => {
         const div = document.createElement('div');
         div.textContent = line;
         log.appendChild(div);
-      }, i * 480);
+      }, i * 380);
+    });
+  }
+
+  function populateVoiceSelector() {
+    const sel = $('ttsVoiceSelect');
+    if (!sel || !window.ManualBookEngine) return;
+    const fill = () => {
+      const voices = window.ManualBookEngine.SpeechEngine.getRussianVoices();
+      if (!voices.length) {
+        sel.innerHTML = `<option value="">Автоматический русский голос</option>`;
+        return;
+      }
+      sel.innerHTML = voices.map((v) =>
+        `<option value="${escapeHtml(v.voiceURI)}">🎙 ${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`
+      ).join('');
+    };
+    fill();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.addEventListener('voiceschanged', fill);
+    }
+    sel.addEventListener('change', () => {
+      window.ManualBookEngine.SpeechEngine.preferredVoiceURI = sel.value;
     });
   }
 
   /* Bind Events & Init */
   async function init() {
-    // Nav tabs
+    // Initialize CanvasCinemaPlayer for user-uploaded books
+    if (window.ManualBookEngine) {
+      cinemaPlayer = new window.ManualBookEngine.CanvasCinemaPlayer($('synthVideoCanvas'), {
+        onTimeUpdate: (cur, total) => {
+          $('synthScrubber').value = String(cur);
+          $('synthTimeLabel').textContent = `${fmtTime(cur)} / ${fmtTime(total)}`;
+        },
+        onStateChange: (isPlaying) => {
+          $('synthPlayBtn').textContent = isPlaying ? '⏸ Пауза' : '▶ Пуск с озвучкой';
+        },
+        onChapterChange: (chIdx) => {
+          if (chIdx !== state.currentChapterIdx) {
+            highlightChapterRow(chIdx);
+          }
+        }
+      });
+      populateVoiceSelector();
+    }
+
+    $('synthPlayBtn').addEventListener('click', () => {
+      if (cinemaPlayer) cinemaPlayer.toggle();
+    });
+    $('synthVideoCanvas').addEventListener('click', () => {
+      if (cinemaPlayer) cinemaPlayer.toggle();
+    });
+    $('synthScrubber').addEventListener('input', (e) => {
+      if (cinemaPlayer) cinemaPlayer.seek(parseFloat(e.target.value || '0'));
+    });
+    $('exportWebmBtn').addEventListener('click', () => {
+      if (!cinemaPlayer) return;
+      const btn = $('exportWebmBtn');
+      cinemaPlayer.exportWebm((recording) => {
+        btn.textContent = recording ? '⏺ Идет запись WebM…' : '⏺ Экспорт видео (.webm)';
+        btn.disabled = recording;
+      });
+    });
+
+    // Topbar controls
     document.querySelectorAll('.nav-tab').forEach((btn) => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
     $('brandHome').addEventListener('click', () => switchTab('player'));
-    $('openBookQuickBtn').addEventListener('click', () => switchTab('book'));
+    $('activeBookSelect').addEventListener('change', (e) => activateBook(e.target.value));
+    $('topUploadBookBtn').addEventListener('click', () => openUploadModal());
 
     // Mode switch
     $('modeVideoBtn').addEventListener('click', () => setPlayerMode('video'));
@@ -902,12 +1360,14 @@
     // Video speed & chapter sync
     const videoEl = $('mainVideoPlayer');
     $('videoSpeedSelect').addEventListener('change', (e) => {
-      videoEl.playbackRate = parseFloat(e.target.value || '1');
+      const r = parseFloat(e.target.value || '1');
+      videoEl.playbackRate = r;
+      if (cinemaPlayer) cinemaPlayer.setRate(r);
     });
 
     videoEl.addEventListener('timeupdate', () => {
       const g = state.currentGuide;
-      if (!g || state.playerMode !== 'video') return;
+      if (!g || g.isSynthesizedVideo || state.playerMode !== 'video') return;
       const t = videoEl.currentTime;
       const idx = g.chapters.findIndex((c) => t >= c.startTime && t < c.endTime);
       if (idx !== -1 && idx !== state.currentChapterIdx) {
@@ -918,7 +1378,15 @@
     // Hands-Free Audio Controls
     const hfAudio = $('hfStageAudio');
     $('hfPlayPauseBtn').addEventListener('click', () => {
-      if (hfAudio.paused) {
+      const g = state.currentGuide;
+      const ch = g && g.chapters[state.currentChapterIdx];
+      if (ch && ch.synthesizedTts) {
+        if (state.hfSpeakingTts) pauseCurrentHandsFreeStage();
+        else {
+          state.manualStepOverride = false;
+          playCurrentHandsFreeStage(false);
+        }
+      } else if (hfAudio.paused) {
         state.manualStepOverride = false;
         hfAudio.play().catch(() => {});
       } else {
@@ -930,8 +1398,7 @@
       state.manualStepOverride = false;
       state.currentStepInChapterIdx = 0;
       updateHandsFreeStepOnly();
-      hfAudio.currentTime = 0;
-      hfAudio.play().catch(() => {});
+      playCurrentHandsFreeStage(true);
     });
 
     $('hfPrevStageBtn').addEventListener('click', () => goPrevStage(true));
@@ -945,7 +1412,7 @@
       const g = state.currentGuide;
       if (!g) return;
       const ch = g.chapters[state.currentChapterIdx];
-      if (!ch || !hfAudio.duration) return;
+      if (!ch || ch.synthesizedTts || !hfAudio.duration) return;
       const ratio = Math.min(0.999, hfAudio.currentTime / hfAudio.duration);
       const targetStep = Math.floor(ratio * ch.steps.length);
       if (targetStep !== state.currentStepInChapterIdx) {
@@ -990,10 +1457,37 @@
       }
     });
 
-    // Pipeline modal
-    $('openPipelineModalBtn').addEventListener('click', () => openPipelineDemo());
-    $('simulateUploadBtn').addEventListener('click', () => openPipelineDemo());
+    // Upload Modal Events (Click + Drag & Drop)
+    $('openPipelineModalBtn').addEventListener('click', () => openUploadModal());
+    $('simulateUploadBtn').addEventListener('click', () => openUploadModal());
     $('closePipelineModalBtn').addEventListener('click', () => $('pipelineModal').classList.add('hidden'));
+
+    const fileInput = $('pdfUploadFileInput');
+    const dropzone = $('uploadDropzone');
+    $('choosePdfFileBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files[0]) {
+        handleFileChosen(fileInput.files[0]);
+      }
+    });
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFileChosen(e.dataTransfer.files[0]);
+      }
+    });
+    $('startProcessPdfBtn').addEventListener('click', runRealPdfUpload);
+
     document.querySelectorAll('.demo-run-btn').forEach((btn) => {
       btn.addEventListener('click', () => runPipelineLog(btn.dataset.preset));
     });
@@ -1041,7 +1535,7 @@
       if (state.showExtractedText) fetchPageText(state.currentPdfPage);
     });
 
-    // DTC controls
+    // DTC & Specs controls
     $('dtcSearchInput').addEventListener('input', renderDtcTable);
     document.querySelectorAll('#dtcCategoryPills .pill').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1051,7 +1545,6 @@
       });
     });
 
-    // Specs controls
     document.querySelectorAll('#mileageSelector .pill').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.selectedMileage = btn.dataset.km;
@@ -1063,7 +1556,11 @@
 
     setupGlobalSearch();
 
-    // Fetch backend datasets (with static ./data/*.json fallback for GitHub Pages)
+    // Load previously uploaded books from IndexedDB + built-in Ford datasets
+    const uploadedPromise = window.ManualBookEngine
+      ? window.ManualBookEngine.BookStorage.listBooks()
+      : Promise.resolve([]);
+
     let guidesData, catalogData, manualData;
     try {
       const gRes = await fetch('./api/guides');
@@ -1086,21 +1583,14 @@
       manualData = manJson;
     }
 
-    state.guides = guidesData.guides || [];
-    state.catalog = catalogData.items || [];
-    state.manual = manualData;
+    state.uploadedBooks = await uploadedPromise;
+    state.builtInFordBook = {
+      guides: guidesData.guides || [],
+      manual: manualData
+    };
+    state.baseCatalog = catalogData.items || [];
 
-    if (state.manual && state.manual.dtcCodes) {
-      $('dtcCountBadge').textContent = state.manual.dtcCodes.length;
-    }
-
-    if (state.guides.length > 0) {
-      selectGuide(state.guides[0]);
-    }
-    renderCatalog();
-    renderBookSidebar();
-    renderDtcTable();
-    renderSpecsTab();
+    await activateBook('ford-fiesta-fusion');
   }
 
   init().catch((err) => console.error('Init error:', err));

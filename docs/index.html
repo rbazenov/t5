@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>МануалВидео PRO — Видеоруководства по ремонту авто и спецтехники с озвучкой</title>
-  <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=3" />
 </head>
 <body>
   <!-- Верхняя шапка -->
@@ -29,15 +29,22 @@
         <input
           type="search"
           id="globalSearchInput"
-          placeholder="Поиск по всем 385 стр. книги Ford, узлам, кодам P0300, электросхемам…"
+          placeholder="Поиск по активной книге, узлам, кодам P0300, электросхемам…"
           autocomplete="off"
         />
         <kbd class="search-kbd">/</kbd>
       </div>
 
-      <div class="active-vehicle-pill" id="openBookQuickBtn" title="Открыть полный PDF-справочник Ford Fiesta / Fusion">
-        <span class="dot-live"></span>
-        <span><strong>Ford Fiesta / Fusion</strong> • 385 стр.</span>
+      <div class="topbar-right-controls">
+        <div class="active-book-switcher" title="Выбрать активную книгу">
+          <span class="dot-live"></span>
+          <select id="activeBookSelect" aria-label="Активная книга">
+            <option value="ford-fiesta-fusion">Ford Fiesta / Fusion (385 стр.)</option>
+          </select>
+        </div>
+        <button class="btn-primary btn-upload-top" id="topUploadBookBtn">
+          📥 Загрузить книгу (PDF)
+        </button>
       </div>
     </div>
 
@@ -45,15 +52,15 @@
     <nav class="nav-tabs" aria-label="Разделы платформы">
       <button class="nav-tab active" data-tab="player">
         <span>🎬 Видеогиды с озвучкой</span>
-        <span class="tab-count">4 MP4</span>
+        <span class="tab-count" id="guidesCountBadge">4 MP4</span>
       </button>
       <button class="nav-tab" data-tab="catalog">
-        <span>🚜 Каталог авто и спецтехники</span>
-        <span class="tab-count">B2B / B2C</span>
+        <span>🚜 Каталог и Мои книги</span>
+        <span class="tab-count" id="catalogCountBadge">B2B / B2C</span>
       </button>
       <button class="nav-tab" data-tab="book">
         <span>📖 Вся книга и Электросхемы</span>
-        <span class="tab-count">385 стр.</span>
+        <span class="tab-count" id="bookPagesBadge">385 стр.</span>
       </button>
       <button class="nav-tab" data-tab="dtc">
         <span>⚡ Коды ошибок OBD-II</span>
@@ -82,11 +89,11 @@
     <section class="tab-panel active" id="tab-player">
       <div class="section-intro">
         <div>
-          <h1>Короткие видеоруководства с закадровым голосом</h1>
-          <p>Реальные пошаговые иллюстрации, моменты затяжки и предупреждения из руководства <strong>Ford Fiesta / Fusion</strong> с дикторской озвучкой и режимом «Свободные руки» для работы в боксе или в поле.</p>
+          <h1 id="playerHeroTitle">Короткие видеоруководства с закадровым голосом</h1>
+          <p id="playerHeroSub">Реальные пошаговые иллюстрации, моменты затяжки и предупреждения из руководства <strong>Ford Fiesta / Fusion</strong> с дикторской озвучкой и режимом «Свободные руки» для работы в боксе или в поле.</p>
         </div>
         <button class="btn-secondary" id="openPipelineModalBtn">
-          + Как работает генерация из PDF
+          📥 + Загрузить свою книгу (PDF)
         </button>
       </div>
 
@@ -100,7 +107,7 @@
           <div class="mode-bar">
             <div class="mode-switch" role="tablist">
               <button class="mode-btn active" id="modeVideoBtn" data-mode="video">
-                🎬 Видеоролик с диктором (MP4)
+                🎬 Видеоролик с диктором
               </button>
               <button class="mode-btn" id="modeStepBtn" data-mode="steps">
                 🧤 Пошагово «Свободные руки» (Бокс / Поле)
@@ -115,15 +122,30 @@
                   <option value="1.5">1.5×</option>
                 </select>
               </label>
-              <a class="btn-ghost-sm" id="downloadMp4Link" href="#" download>⬇ Скачать MP4</a>
+              <a class="btn-ghost-sm" id="downloadMp4Link" href="./media/videos/oil-change.mp4" download>⬇ Скачать MP4</a>
+              <button class="btn-ghost-sm hidden" id="exportWebmBtn">⏺ Экспорт видео (.webm)</button>
             </div>
           </div>
 
-          <!-- БЛОК РЕЖИМА А: MP4 ВИДЕОПЛЕЕР -->
+          <!-- БЛОК РЕЖИМА А: ВИДЕОПЛЕЕР (MP4 ИЛИ СИНТЕЗИРОВАННЫЙ CANVAS HD ПЛЕЕР ДЛЯ ЗАГРУЖЕННЫХ КНИГ) -->
           <div class="video-stage-card" id="videoModeContainer">
-            <div class="video-wrapper">
+            <div class="video-wrapper" id="mp4VideoWrapper">
               <video id="mainVideoPlayer" src="./media/videos/oil-change.mp4" poster="./media/steps/oil_s09.jpg" controls playsinline preload="metadata"></video>
             </div>
+
+            <!-- Интерактивный HD-видеоплеер для пользовательских загруженных PDF -->
+            <div class="synth-video-wrap hidden" id="synthVideoWrap">
+              <div class="synth-canvas-holder">
+                <canvas id="synthVideoCanvas" width="1280" height="720"></canvas>
+              </div>
+              <div class="synth-transport-bar">
+                <button class="btn-primary synth-play-btn" id="synthPlayBtn">▶ Пуск с озвучкой</button>
+                <input type="range" id="synthScrubber" min="0" max="100" step="0.1" value="0" />
+                <span class="synth-time-lbl" id="synthTimeLabel">0:00 / 0:00</span>
+                <select id="ttsVoiceSelect" class="voice-select" title="Голос синтезатора речи"></select>
+              </div>
+            </div>
+
             <div class="active-voice-transcript">
               <div class="transcript-badge">🎙 Закадровый голос диктора (текущий этап):</div>
               <p id="liveVideoTranscriptText">Нажмите Play для просмотра озвученного пошагового руководства или выберите нужный этап ниже.</p>
@@ -233,14 +255,14 @@
     <section class="tab-panel" id="tab-catalog">
       <div class="section-intro">
         <div>
-          <h1>Единый каталог руководств: Легковые авто, Грузовики и Спецтехника</h1>
-          <p>Концепция масштабирования сервиса: закрытые корпоративные библиотеки для СТО, сервисных бригад строительной и сельхозтехники с автоматическим переводом и голосовой озвучкой ремонтов.</p>
+          <h1>Каталог руководств: Мои загруженные книги, Авто и Спецтехника</h1>
+          <p>Загружайте любые PDF-руководства по легковым авто, грузовикам, экскаваторам или тракторам — система автоматически разберет страницы, выделит операции ремонта, создаст видеогиды с озвучкой и сохранит книгу в вашем браузере.</p>
         </div>
-        <button class="btn-primary" id="simulateUploadBtn">+ Загрузить PDF-мануал в обработку</button>
+        <button class="btn-primary" id="simulateUploadBtn">📥 + Загрузить новую книгу (PDF)</button>
       </div>
 
       <div class="filter-pills" id="catalogFilterPills">
-        <button class="pill active" data-cat="all">Все категории (5)</button>
+        <button class="pill active" data-cat="all">Все категории</button>
         <button class="pill" data-cat="cars">Легковые авто</button>
         <button class="pill" data-cat="heavy">Спецтехника (экскаваторы / погрузчики)</button>
         <button class="pill" data-cat="trucks">Грузовые и коммерческие</button>
@@ -256,12 +278,12 @@
           <div class="arch-step">
             <div class="arch-num">01</div>
             <h4>Парсинг PDF и привязка схем</h4>
-            <p>Извлечение структуры разделов, пошаговых фотографий с векторными стрелками, предупреждений и таблиц (при необходимости — техперевод с EN/CN).</p>
+            <p>Извлечение структуры разделов, пошаговых фотографий с векторными стрелками, предупреждений и таблиц прямо в браузере или на сервере.</p>
           </div>
           <div class="arch-step">
             <div class="arch-num">02</div>
             <h4>Обогащение моментами и ГСМ</h4>
-            <p>Автоматическая подстановка моментов затяжки (Н·м), объемов жидкостей и артикулов специнструмента из приложений прямо в карточку шага.</p>
+            <p>Автоматическая подстановка моментов затяжки (Н·м), объемов жидкостей и специнструмента прямо в карточку шага.</p>
           </div>
           <div class="arch-step">
             <div class="arch-num">03</div>
@@ -270,20 +292,20 @@
           </div>
           <div class="arch-step">
             <div class="arch-num">04</div>
-            <h4>Видео MP4 + Плеер «Без рук»</h4>
-            <p>Рендеринг короткого HD-видео с плашками телеметрии и интерактивного пошагового режима с автопаузой и голосовыми командами для механика.</p>
+            <h4>Видео + Плеер «Без рук»</h4>
+            <p>Рендеринг HD-видео с плашками телеметрии и интерактивного пошагового режима с автопаузой и голосовыми командами для механика.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ВКЛАДКА 3: ВСЯ КНИГА (385 СТР.) И 62 ЦВЕТНЫЕ ЭЛЕКТРОСХЕМЫ -->
+    <!-- ВКЛАДКА 3: ВСЯ КНИГА И ЭЛЕКТРОСХЕМЫ -->
     <section class="tab-panel" id="tab-book">
       <div class="book-layout">
         <aside class="book-sidebar">
           <div class="book-sidebar-tabs">
-            <button class="bs-tab active" id="bsTabToc">Оглавление (16 разд.)</button>
-            <button class="bs-tab" id="bsTabDiagrams">Электросхемы (62)</button>
+            <button class="bs-tab active" id="bsTabToc">Оглавление</button>
+            <button class="bs-tab" id="bsTabDiagrams">Электросхемы</button>
           </div>
           <div class="book-filter-wrap">
             <input type="search" id="bookSidebarFilter" placeholder="Фильтр по разделам или схемам…" />
@@ -299,7 +321,7 @@
               <label class="page-jump-lbl">
                 Стр. PDF:
                 <input type="number" id="pdfPageInput" min="1" max="385" value="5" />
-                <span>из 385</span>
+                <span id="pdfTotalPagesLabel">из 385</span>
               </label>
               <span class="book-page-badge" id="bookPageNumberHint">(Стр. книги: 4)</span>
               <button class="btn-ghost-sm" id="pdfNextPageBtn">Вперед ▶</button>
@@ -314,7 +336,7 @@
 
           <div class="book-canvas-scroll" id="bookCanvasScroll">
             <div class="pdf-loading-indicator hidden" id="pdfLoadingSpinner">Рендеринг страницы в высоком разрешении…</div>
-            <img id="pdfRenderedImage" src="./media/pages/p_5.jpg" alt="Страница руководства Ford Fiesta/Fusion" />
+            <img id="pdfRenderedImage" src="./media/pages/p_5.jpg" alt="Страница руководства" />
             <iframe id="staticPdfIframe" class="hidden" title="PDF страница руководства" style="width:100%;height:70vh;border:none;border-radius:8px;background:#111827;"></iframe>
           </div>
 
@@ -330,8 +352,8 @@
     <section class="tab-panel" id="tab-dtc">
       <div class="section-intro">
         <div>
-          <h1>Расшифровка диагностических кодов неисправностей OBD-II (Ford Fiesta / Fusion)</h1>
-          <p>Полная база из Приложения 4 руководства: коды силового агрегата (<strong>P</strong>), кузовной электроники и подушек SRS (<strong>B</strong>), шасси и ABS/ESP (<strong>C</strong>), а также шины CAN (<strong>U</strong>).</p>
+          <h1>Расшифровка диагностических кодов неисправностей OBD-II</h1>
+          <p>База кодов активной книги: силовой агрегат (<strong>P</strong>), кузовная электроника и подушки SRS (<strong>B</strong>), шасси и ABS/ESP (<strong>C</strong>), шина CAN (<strong>U</strong>).</p>
         </div>
       </div>
 
@@ -366,14 +388,14 @@
       <div class="section-intro">
         <div>
           <h1>Инженерный справочник: Регламент ТО, Моменты затяжки, Объемы ГСМ и Лампы</h1>
-          <p>Сводные таблицы из Раздела 4 и Приложений 1–3 для быстрого подбора расходников и динамометрического контроля без перелистывания книги.</p>
+          <p>Сводные таблицы активного руководства для быстрого подбора расходников и динамометрического контроля без перелистывания книги.</p>
         </div>
       </div>
 
       <!-- Калькулятор регламента ТО по пробегу -->
       <div class="specs-block">
         <div class="specs-block-header">
-          <h3>Интерактивная карта регламентного ТО (интервал 20 000 км)</h3>
+          <h3>Интерактивная карта регламентного ТО</h3>
           <div class="mileage-pills" id="mileageSelector">
             <button class="pill active" data-km="km20">20 тыс. км</button>
             <button class="pill" data-km="km40">40 тыс. км</button>
@@ -411,7 +433,7 @@
         <div class="specs-stack">
           <div class="specs-block">
             <div class="specs-block-header">
-              <h3>Заправочные объемы и спецификации Ford</h3>
+              <h3>Заправочные объемы и спецификации</h3>
             </div>
             <div class="table-scroll">
               <table class="data-table compact">
@@ -463,39 +485,93 @@
     </div>
   </div>
 
-  <!-- Модальное окно демонстрации B2B-загрузки PDF в конвейер -->
+  <!-- Модальное окно РЕАЛЬНОЙ ЗАГРУЗКИ PDF-КНИГИ И ОЦИФРОВКИ -->
   <div class="modal-backdrop hidden" id="pipelineModal">
-    <div class="modal-box">
+    <div class="modal-box upload-modal-box">
       <div class="modal-head">
-        <h3>Конвейер B2B-платформы: Превращение PDF-мануала в озвученные видеогиды</h3>
+        <h3>📥 Загрузить новую книгу по ремонту (PDF)</h3>
         <button class="btn-ghost-sm" id="closePipelineModalBtn">Закрыть ✕</button>
       </div>
       <div class="modal-body">
         <p class="modal-lead">
-          Сервис решает главную проблему СТО и парков спецтехники: превращает тысячестраничные заводские PDF-документы (включая английские и китайские мануалы <em>XCMG, Sany, JCB, Komatsu, КАМАЗ</em>) в короткие голосовые видеокарты по каждому узлу.
+          Выберите любой <strong>.pdf</strong>-файл руководства по автомобилю, грузовику или спецтехнике с вашего компьютера или телефона. Браузер автоматически разберет страницы, выделит операции ремонта, создаст озвученные видеогиды и сохранит книгу в вашей библиотеке.
         </p>
-        <div class="pipeline-demo-box">
-          <div class="demo-dropzone" id="demoDropzone">
-            <div class="drop-icon">📄 → 🎬</div>
-            <strong>Выберите тип документации для симуляции конвейера обработки:</strong>
-            <div class="demo-preset-btns">
-              <button class="btn-secondary demo-run-btn" data-preset="Экскаватор XCMG XE215C — Service Manual (940 стр., EN/CN)">
-                🚜 XCMG XE215C (Гидросистема)
-              </button>
-              <button class="btn-secondary demo-run-btn" data-preset="JCB 3CX Super — Workshop Manual (1280 стр., EN)">
-                🏗 JCB 3CX (КПП Powershift)
-              </button>
-              <button class="btn-secondary demo-run-btn" data-preset="КАМАЗ-54901 К5 — Руководство по ремонту ДВС Р6 (1150 стр., RU)">
-                🚛 КАМАЗ-54901 (ДВС и EBS)
-              </button>
-            </div>
+
+        <input type="file" id="pdfUploadFileInput" accept=".pdf,application/pdf" class="hidden" />
+
+        <div class="upload-dropzone" id="uploadDropzone">
+          <div class="drop-icon">📄 ➔ 🎬</div>
+          <div class="drop-main-text" id="selectedFileLabel">
+            Перетащите PDF-файл сюда или нажмите кнопку ниже
           </div>
-          <div class="demo-log hidden" id="demoPipelineLog"></div>
+          <div class="drop-sub-text">Поддерживаются книги любого объема (текстовые и иллюстрированные PDF, RU / EN / CN)</div>
+          <button type="button" class="btn-primary" id="choosePdfFileBtn" style="margin-top:12px;">
+            📂 Выбрать PDF-файл на устройстве
+          </button>
+        </div>
+
+        <!-- Параметры книги -->
+        <div class="upload-meta-grid">
+          <label class="field-lbl">
+            <span>Категория техники</span>
+            <select id="uploadCategorySelect">
+              <option value="cars">Легковые автомобили</option>
+              <option value="heavy">Спецтехника (экскаваторы / погрузчики)</option>
+              <option value="trucks">Грузовые и коммерческие</option>
+              <option value="agri">Сельхозтехника (тракторы / комбайны)</option>
+            </select>
+          </label>
+          <label class="field-lbl">
+            <span>Марка (заполняется автоматически)</span>
+            <input type="text" id="uploadBrandInput" placeholder="Например: Toyota, XCMG, JCB, КАМАЗ" />
+          </label>
+          <label class="field-lbl">
+            <span>Модель / Название руководства</span>
+            <input type="text" id="uploadModelInput" placeholder="Например: Camry XV50 / XE215C" />
+          </label>
+          <label class="field-lbl">
+            <span>Двигатели / Агрегаты (необязательно)</span>
+            <input type="text" id="uploadEnginesInput" placeholder="Например: 2.5 2AR-FE / Гидравлика Kawasaki" />
+          </label>
+        </div>
+
+        <button type="button" class="btn-primary upload-submit-btn" id="startProcessPdfBtn" disabled>
+          🚀 Обработать PDF и создать видеогиды с озвучкой
+        </button>
+
+        <!-- Прогресс-бар реального разбора PDF -->
+        <div class="upload-progress-wrap hidden" id="uploadProgressWrap">
+          <div class="upload-progress-top">
+            <span id="uploadProgressStageText">Подготовка к чтению PDF…</span>
+            <strong id="uploadProgressPct">0%</strong>
+          </div>
+          <div class="upload-progress-track">
+            <div class="upload-progress-fill" id="uploadProgressFill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="demo-log hidden" id="demoPipelineLog"></div>
+
+        <div class="demo-presets-footer">
+          <span>Либо посмотреть симуляцию B2B-конвейера без файла:</span>
+          <div class="demo-preset-btns">
+            <button type="button" class="btn-ghost-sm demo-run-btn" data-preset="Экскаватор XCMG XE215C — Service Manual (940 стр., EN/CN)">
+              🚜 XCMG XE215C
+            </button>
+            <button type="button" class="btn-ghost-sm demo-run-btn" data-preset="JCB 3CX Super — Workshop Manual (1280 стр., EN)">
+              🏗 JCB 3CX
+            </button>
+            <button type="button" class="btn-ghost-sm demo-run-btn" data-preset="КАМАЗ-54901 К5 — Руководство по ремонту ДВС Р6 (1150 стр., RU)">
+              🚛 КАМАЗ-54901
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="./app.js?v=2"></script>
+  <script src="./vendor/pdfjs/pdf.min.js?v=3"></script>
+  <script src="./book-uploader.js?v=3"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>
