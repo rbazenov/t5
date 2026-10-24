@@ -31,6 +31,7 @@
 
   const $ = (id) => document.getElementById(id);
   let hasLiveBackend = true;
+  let staticPagesText = null;
 
   function assetUrl(u) {
     if (!u) return '';
@@ -457,12 +458,23 @@
     const img = $('pdfRenderedImage');
     spinner.classList.remove('hidden');
 
+    const spinner = $('pdfLoadingSpinner');
+    const img = $('pdfRenderedImage');
+    const iframe = $('staticPdfIframe');
+    spinner.classList.remove('hidden');
+    if (iframe) iframe.classList.add('hidden');
+    img.classList.remove('hidden');
+
     const dpi = state.pdfZoom >= 140 ? 200 : 150;
     img.onload = () => spinner.classList.add('hidden');
     img.onerror = () => {
       spinner.classList.add('hidden');
       if (hasLiveBackend) return;
-      img.src = './media/pages/p_5.jpg';
+      img.classList.add('hidden');
+      if (iframe) {
+        iframe.classList.remove('hidden');
+        iframe.src = `../Ford_Fiesta_Fusion_TR_Carinfo.com.ua_compressed.pdf#page=${p}`;
+      }
     };
     img.src = hasLiveBackend ? `./api/page/${p}/image?dpi=${dpi}` : `./media/pages/p_${p}.jpg`;
     applyPdfZoom();
@@ -486,7 +498,15 @@
 
   async function fetchPageText(p) {
     try {
-      const res = await fetch(`/api/page/${p}/text`);
+      if (!hasLiveBackend) {
+        if (!staticPagesText) {
+          staticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+        }
+        const entry = staticPagesText[p - 1];
+        $('pageExtractedTextContent').textContent = (entry && entry.text) || '(На этой странице только изображение без текстового слоя)';
+        return;
+      }
+      const res = await fetch(`./api/page/${p}/text`);
       const data = await res.json();
       $('pageExtractedTextContent').textContent = data.text || '(На этой странице только изображение без текстового слоя)';
     } catch (_) {
@@ -611,7 +631,14 @@
               return;
             }
           }
-          // Static fallback search across guides, TOC, DTC, and wiring diagrams
+          // Static fallback search across guides, TOC, DTC, wiring diagrams, and all 385 pages
+          if (!staticPagesText) {
+            try {
+              staticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+            } catch (_) {
+              staticPagesText = [];
+            }
+          }
           const ql = q.toLowerCase();
           const cyrNorm = q.toUpperCase().replace(/Р/g, 'P').replace(/В/g, 'B').replace(/С/g, 'C').replace(/О/g, '0');
           const tocHits = [];
@@ -622,13 +649,28 @@
               }
             });
           });
+          const pageHits = [];
+          for (const pg of staticPagesText) {
+            if (!pg.text) continue;
+            const idx = pg.text.toLowerCase().indexOf(ql);
+            if (idx !== -1) {
+              const s = Math.max(0, idx - 80);
+              const e = Math.min(pg.text.length, idx + 150);
+              pageHits.push({
+                pdfPage: pg.pdfPage,
+                bookPage: pg.bookPage,
+                snippet: (s > 0 ? '…' : '') + pg.text.slice(s, e) + (e < pg.text.length ? '…' : '')
+              });
+              if (pageHits.length >= 25) break;
+            }
+          }
           renderSearchResults({
             query: q,
             guides: state.guides.filter((g) => (`${g.title} ${g.section}`).toLowerCase().includes(ql)),
             toc: tocHits.slice(0, 20),
             dtc: (state.manual?.dtcCodes || []).filter((d) => d.code.toUpperCase().includes(cyrNorm) || d.description.toLowerCase().includes(ql)).slice(0, 20),
             diagrams: (state.manual?.wiringDiagrams || []).filter((w) => (`${w.code} ${w.title} ${w.components}`).toLowerCase().includes(ql)).slice(0, 15),
-            pages: []
+            pages: pageHits
           });
         } catch (_) {}
       }, 160);
