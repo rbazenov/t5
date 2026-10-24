@@ -1,0 +1,114 @@
+{
+  "items": [
+    {
+      "id": "ford-fiesta-fusion",
+      "category": "cars",
+      "categoryLabel": "Легковые автомобили",
+      "brand": "Ford",
+      "model": "Fiesta Mk5 / Fusion (2001–2010)",
+      "engines": "Duratec 1.3 / 1.4 / 1.6 • Duratec-HE 2.0 ST",
+      "transmissions": "МКПП Durashift • Робот EST • АКПП AW81-40-LE",
+      "pagesCount": 385,
+      "operationsCount": 449,
+      "videosReady": 4,
+      "diagramsCount": 62,
+      "dtcCount": 187,
+      "status": "active",
+      "statusLabel": "Оцифровано • 4 видео с озвучкой",
+      "coverUrl": "/media/cover.jpg",
+      "description": "Полное иллюстрированное руководство ИД «Третий Рим» (385 стр.): пошаговые операции с моментами затяжки, 62 цветные электросхемы, 187 кодов OBD-II и готовые озвученные видеогиды."
+    },
+    {
+      "id": "xcmg-xe215c",
+      "category": "heavy",
+      "categoryLabel": "Спецтехника (экскаваторы)",
+      "brand": "XCMG",
+      "model": "XE215C / XE215DA Гусеничный экскаватор",
+      "engines": "Isuzu BB-6BG1TRP (6 цил., турбодизель) • Гидравлика Kawasaki K3V112",
+      "transmissions": "Гидроход 2-скоростной • Поворотный редуктор",
+      "pagesCount": 940,
+      "operationsCount": 312,
+      "videosReady": 0,
+      "diagramsCount": 48,
+      "dtcCount": 240,
+      "status": "pipeline",
+      "statusLabel": "B2B-демо • Автоперевод CN/EN → RU",
+      "coverUrl": null,
+      "sampleTopics": [
+        "Регулировка давления главного гидронасоса Kawasaki K3V112",
+        "Замена фильтров гидробака и развоздушивание гидросистемы",
+        "Калибровка пропорционального соленоида и диагностика ошибок монитора"
+      ],
+      "description": "Пример высокомаржинального B2B-кейса: перевод англо-/китайскоязычного сервисного мануала спецтехники с генерацией голосовых видеоинструкций для выездных бригад в поле."
+    },
+    {
+      "id": "jcb-3cx-super",
+      "category": "heavy",
+      "categoryLabel": "Спецтехника (экскаваторы-погрузчики)",
+      "brand": "JCB",
+      "model": "3CX / 4CX Super (Dieselmax 4.4)",
+      "engines": "JCB Dieselmax 444 (68–74 кВт)",
+      "transmissions": "JCB Synchroshuttle / Powershift 4WD",
+      "pagesCount": 1280,
+      "operationsCount": 520,
+      "videosReady": 0,
+      "diagramsCount": 74,
+      "dtcCount": 310,
+      "status": "pipeline",
+      "statusLabel": "B2B-демо • Сервисный пакет парка",
+      "coverUrl": null,
+      "sampleTopics": [
+        "Переборка моста JCB Max-Trac и мокрых многодисковых тормозов",
+        "Проверка давления подпитки КПП Powershift и соленоидов реверса",
+        "Замена уплотнений гидроцилиндра рукояти и стрелы"
+      ],
+      "description": "Пошаговые видеокарты для ремонтных баз строительной техники: сокращают время поиска моментов затяжки и гидравлических портов контрольного замера давления."
+    },
+    {
+      "id": "kamaz-54901-k5",
+      "category": "trucks",
+      "categoryLabel": "Грузовые и коммерческие",
+      "brand": "КАМАЗ",
+      "model": "54901 (Поколение К5)",
+      "engines": "КАМАЗ-910.12-450 (Р6, 11.9 л, Common Rail)",
+      "transmissions": "АМТ ZF TraXon 12TX2210 TD",
+      "pagesCount": 1150,
+      "operationsCount": 410,
+      "videosReady": 0,
+      "diagramsCount": 95,
+      "dtcCount": 490,
+      "status": "pipeline",
+      "statusLabel": "B2B-демо • Автопарки и СТО",
+      "coverUrl": null,
+      "sampleTopics": [
+        "Регулировка тепловых зазоров клапанов и моторного тормоза Р6 910",
+        "Диагностика пневмоконтуров EBS Wabco и энергоаккумуляторов",
+        "Адаптация сцепления роботизированной КПП ZF TraXon"
+      ],
+      "description": "Корпоративная база знаний для грузовых автопарков: быстрый поиск по кодам ошибок CAN J1939, пневмосхемам и регламентным картам ТО."
+    },
+    {
+      "id": "mtz-belarus-82",
+      "category": "agri",
+      "categoryLabel": "Сельхозтехника (тракторы и комбайны)",
+      "brand": "МТЗ / John Deere",
+      "model": "Беларус 82.1 / 1221.2 • John Deere 6B",
+      "engines": "Д-243 / Д-260 (ММЗ) • PowerTech 4.5L",
+      "transmissions": "Механическая 18/4 с редуктором • ВОМ 540/1000",
+      "pagesCount": 620,
+      "operationsCount": 235,
+      "videosReady": 0,
+      "diagramsCount": 28,
+      "dtcCount": 95,
+      "status": "pipeline",
+      "statusLabel": "B2B-демо • Агрохолдинги (офлайн-режим)",
+      "coverUrl": null,
+      "sampleTopics": [
+        "Регулировка тормозных лент планетарного механизма ВОМ",
+        "Настройка силового и позиционного регулятора задней гидронавески",
+        "Проверка угла опережения впрыска топлива ТНВД в полевых условиях"
+      ],
+      "description": "Офлайн-пакеты с озвучкой для механизаторов и полевых инженеров агрохолдингов, где нет стабильного мобильного интернета во время посевной и уборки."
+    }
+  ]
+}
