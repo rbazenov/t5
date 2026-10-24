@@ -146,6 +146,7 @@
     const v = $('mainVideoPlayer');
     v.src = assetUrl(guide.videoUrl);
     v.poster = assetUrl(guide.posterUrl);
+    v.load();
     v.playbackRate = parseFloat($('videoSpeedSelect').value || '1');
 
     const dl = $('downloadMp4Link');
@@ -453,10 +454,6 @@
     state.currentPdfPage = p;
     $('pdfPageInput').value = p;
     $('bookPageNumberHint').textContent = p > 1 ? `(Стр. книги: ${p - 1})` : '(Обложка)';
-
-    const spinner = $('pdfLoadingSpinner');
-    const img = $('pdfRenderedImage');
-    spinner.classList.remove('hidden');
 
     const spinner = $('pdfLoadingSpinner');
     const img = $('pdfRenderedImage');
