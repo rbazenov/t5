@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>МануалВидео PRO — Видеоруководства по ремонту авто и спецтехники с озвучкой</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- Верхняя шапка -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand" id="brandHome" title="На главный экран видеогидов">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">МануалВидео <span class="badge-pro">PRO</span></div>
+          <div class="brand-sub">АВТО • ГРУЗОВИКИ • СПЕЦТЕХНИКА • ОЗВУЧЕННЫЙ РЕМОНТ</div>
+        </div>
+      </div>
+
+      <div class="global-search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="search"
+          id="globalSearchInput"
+          placeholder="Поиск по всем 385 стр. книги Ford, узлам, кодам P0300, электросхемам…"
+          autocomplete="off"
+        />
+        <kbd class="search-kbd">/</kbd>
+      </div>
+
+      <div class="active-vehicle-pill" id="openBookQuickBtn" title="Открыть полный PDF-справочник Ford Fiesta / Fusion">
+        <span class="dot-live"></span>
+        <span><strong>Ford Fiesta / Fusion</strong> • 385 стр.</span>
+      </div>
+    </div>
+
+    <!-- Навигационные вкладки -->
+    <nav class="nav-tabs" aria-label="Разделы платформы">
+      <button class="nav-tab active" data-tab="player">
+        <span>🎬 Видеогиды с озвучкой</span>
+        <span class="tab-count">4 MP4</span>
+      </button>
+      <button class="nav-tab" data-tab="catalog">
+        <span>🚜 Каталог авто и спецтехники</span>
+        <span class="tab-count">B2B / B2C</span>
+      </button>
+      <button class="nav-tab" data-tab="book">
+        <span>📖 Вся книга и Электросхемы</span>
+        <span class="tab-count">385 стр.</span>
+      </button>
+      <button class="nav-tab" data-tab="dtc">
+        <span>⚡ Коды ошибок OBD-II</span>
+        <span class="tab-count" id="dtcCountBadge">187</span>
+      </button>
+      <button class="nav-tab" data-tab="specs">
+        <span>🔧 Моменты, ГСМ и ТО</span>
+        <span class="tab-count">Справочник</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Выпадающая панель результатов глобального поиска -->
+  <div class="search-dropdown hidden" id="searchDropdown">
+    <div class="search-dropdown-header">
+      <span id="searchStatusText">Результаты поиска</span>
+      <button class="btn-ghost-sm" id="closeSearchBtn">Закрыть ✕</button>
+    </div>
+    <div class="search-dropdown-body" id="searchResultsBody"></div>
+  </div>
+
+  <!-- Основной контент -->
+  <main class="main-container">
+
+    <!-- ВКЛАДКА 1: ВИДЕОГИДЫ И ПОШАГОВЫЙ ПЛЕЕР С ГОЛОСОМ -->
+    <section class="tab-panel active" id="tab-player">
+      <div class="section-intro">
+        <div>
+          <h1>Короткие видеоруководства с закадровым голосом</h1>
+          <p>Реальные пошаговые иллюстрации, моменты затяжки и предупреждения из руководства <strong>Ford Fiesta / Fusion</strong> с дикторской озвучкой и режимом «Свободные руки» для работы в боксе или в поле.</p>
+        </div>
+        <button class="btn-secondary" id="openPipelineModalBtn">
+          + Как работает генерация из PDF
+        </button>
+      </div>
+
+      <!-- Карточки выбора операции -->
+      <div class="guide-cards-strip" id="guideSelectorStrip"></div>
+
+      <!-- Рабочая зона плеера -->
+      <div class="player-workspace" id="playerWorkspace">
+        <div class="player-main-col">
+          <!-- Переключатель режимов плеера -->
+          <div class="mode-bar">
+            <div class="mode-switch" role="tablist">
+              <button class="mode-btn active" id="modeVideoBtn" data-mode="video">
+                🎬 Видеоролик с диктором (MP4)
+              </button>
+              <button class="mode-btn" id="modeStepBtn" data-mode="steps">
+                🧤 Пошагово «Свободные руки» (Бокс / Поле)
+              </button>
+            </div>
+            <div class="mode-actions" id="videoExtraControls">
+              <label class="speed-label">Скорость:
+                <select id="videoSpeedSelect">
+                  <option value="0.85">0.85×</option>
+                  <option value="1" selected>1.0×</option>
+                  <option value="1.25">1.25×</option>
+                  <option value="1.5">1.5×</option>
+                </select>
+              </label>
+              <a class="btn-ghost-sm" id="downloadMp4Link" href="#" download>⬇ Скачать MP4</a>
+            </div>
+          </div>
+
+          <!-- БЛОК РЕЖИМА А: MP4 ВИДЕОПЛЕЕР -->
+          <div class="video-stage-card" id="videoModeContainer">
+            <div class="video-wrapper">
+              <video id="mainVideoPlayer" controls playsinline preload="metadata"></video>
+            </div>
+            <div class="active-voice-transcript">
+              <div class="transcript-badge">🎙 Закадровый голос диктора (текущий этап):</div>
+              <p id="liveVideoTranscriptText">Нажмите Play для просмотра озвученного пошагового руководства или выберите нужный этап ниже.</p>
+            </div>
+          </div>
+
+          <!-- БЛОК РЕЖИМА Б: ПОШАГОВЫЙ ПЛЕЕР «БЕЗ РУК» -->
+          <div class="handsfree-card hidden" id="stepsModeContainer">
+            <div class="hf-top-bar">
+              <div>
+                <span class="hf-stage-pill" id="hfStagePill">ЭТАП 1 ИЗ 4</span>
+                <h3 id="hfStageTitle">Загрузка…</h3>
+              </div>
+              <div class="hf-toggles">
+                <label class="check-pill" title="Плеер автоматически останавливается в конце этапа, пока вы выполняете операцию">
+                  <input type="checkbox" id="hfAutoPauseToggle" checked />
+                  <span>Автопауза после этапа</span>
+                </label>
+                <button class="btn-voice-cmd" id="voiceControlToggleBtn" title="Голосовые команды через микрофон браузера: «дальше», «назад», «повтори», «пауза»">
+                  🎤 Голосовые команды: ВЫКЛ
+                </button>
+              </div>
+            </div>
+
+            <!-- Галерея шагов текущего этапа -->
+            <div class="hf-photo-stage">
+              <div class="hf-main-photo-wrap">
+                <img id="hfCurrentPhoto" src="" alt="Фото шага ремонта" />
+                <button class="zoom-photo-btn" id="hfZoomBtn" title="Увеличить фото на весь экран">🔍 Увеличить</button>
+                <div class="hf-step-counter-badge" id="hfStepCounterBadge">Шаг 1</div>
+              </div>
+              <div class="hf-step-details">
+                <div class="hf-step-caption" id="hfStepCaption"></div>
+                <div class="hf-meta-boxes">
+                  <div class="hf-meta-box info">
+                    <span class="meta-lbl">ИНСТРУМЕНТ / ОПЕРАЦИЯ</span>
+                    <strong id="hfStepTool"></strong>
+                  </div>
+                  <div class="hf-meta-box amber">
+                    <span class="meta-lbl">МОМЕНТ ЗАТЯЖКИ / КОНТРОЛЬ</span>
+                    <strong id="hfChapterMetric"></strong>
+                  </div>
+                  <div class="hf-meta-box danger">
+                    <span class="meta-lbl">ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ</span>
+                    <strong id="hfChapterWarning"></strong>
+                  </div>
+                </div>
+                <div class="hf-step-thumbs" id="hfStepThumbs"></div>
+              </div>
+            </div>
+
+            <!-- Аудиоплеер этапа и крупные кнопки для работы в перчатках -->
+            <div class="hf-controls-bar">
+              <audio id="hfStageAudio" preload="auto"></audio>
+              <div class="hf-big-buttons">
+                <button class="glove-btn" id="hfPrevStageBtn">◀ Предыдущий этап</button>
+                <button class="glove-btn primary" id="hfPlayPauseBtn">🔊 Озвучить этап</button>
+                <button class="glove-btn" id="hfRepeatBtn">↻ Повторить</button>
+                <button class="glove-btn accent" id="hfNextStageBtn">Следующий этап ▶</button>
+              </div>
+              <div class="hf-hotkeys-hint">
+                Горячие клавиши: <kbd>Пробел</kbd> пауза/пуск • <kbd>←</kbd> <kbd>→</kbd> этапы • <kbd>R</kbd> повторить этап
+              </div>
+            </div>
+          </div>
+
+          <!-- Таймкоды / Этапы операции -->
+          <div class="chapters-box">
+            <div class="chapters-header">
+              <h3>Этапы операции и таймкоды озвучки</h3>
+              <span id="chaptersSummaryMeta"></span>
+            </div>
+            <div class="chapters-list" id="chaptersList"></div>
+          </div>
+        </div>
+
+        <!-- Правая колонка: Чек-лист инструмента, Моменты, Ссылка на PDF -->
+        <aside class="player-side-col">
+          <div class="side-card">
+            <div class="side-card-head">
+              <h3>Паспорт операции</h3>
+              <button class="btn-link-pdf" id="openSourcePdfBtn">📄 Оригинал стр. PDF</button>
+            </div>
+            <div class="passport-grid" id="guidePassportGrid"></div>
+          </div>
+
+          <div class="side-card">
+            <div class="side-card-head">
+              <h3>Моменты затяжки и допуски</h3>
+            </div>
+            <div class="torques-mini-list" id="guideTorquesList"></div>
+          </div>
+
+          <div class="side-card">
+            <div class="side-card-head">
+              <h3>Чек-лист инструмента</h3>
+              <span class="checklist-counter" id="checklistProgress">0/0</span>
+            </div>
+            <p class="side-hint">Отметьте инструмент и расходники перед началом ремонта:</p>
+            <div class="checklist-items" id="guideChecklist"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ВКЛАДКА 2: КАТАЛОГ АВТО И СПЕЦТЕХНИКИ -->
+    <section class="tab-panel" id="tab-catalog">
+      <div class="section-intro">
+        <div>
+          <h1>Единый каталог руководств: Легковые авто, Грузовики и Спецтехника</h1>
+          <p>Концепция масштабирования сервиса: закрытые корпоративные библиотеки для СТО, сервисных бригад строительной и сельхозтехники с автоматическим переводом и голосовой озвучкой ремонтов.</p>
+        </div>
+        <button class="btn-primary" id="simulateUploadBtn">+ Загрузить PDF-мануал в обработку</button>
+      </div>
+
+      <div class="filter-pills" id="catalogFilterPills">
+        <button class="pill active" data-cat="all">Все категории (5)</button>
+        <button class="pill" data-cat="cars">Легковые авто</button>
+        <button class="pill" data-cat="heavy">Спецтехника (экскаваторы / погрузчики)</button>
+        <button class="pill" data-cat="trucks">Грузовые и коммерческие</button>
+        <button class="pill" data-cat="agri">Сельхозтехника</button>
+      </div>
+
+      <div class="catalog-grid" id="catalogGrid"></div>
+
+      <!-- Блок бизнес-модели и архитектуры -->
+      <div class="architecture-banner">
+        <h3>Как PDF-книга превращается в озвученный видеосервис (4 шага конвейера)</h3>
+        <div class="arch-steps">
+          <div class="arch-step">
+            <div class="arch-num">01</div>
+            <h4>Парсинг PDF и привязка схем</h4>
+            <p>Извлечение структуры разделов, пошаговых фотографий с векторными стрелками, предупреждений и таблиц (при необходимости — техперевод с EN/CN).</p>
+          </div>
+          <div class="arch-step">
+            <div class="arch-num">02</div>
+            <h4>Обогащение моментами и ГСМ</h4>
+            <p>Автоматическая подстановка моментов затяжки (Н·м), объемов жидкостей и артикулов специнструмента из приложений прямо в карточку шага.</p>
+          </div>
+          <div class="arch-step">
+            <div class="arch-num">03</div>
+            <h4>Дикторский синтез речи (TTS)</h4>
+            <p>Генерация четкой русской голосовой инструкции без «воды» с правильным произношением единиц измерения и акцентом на технике безопасности.</p>
+          </div>
+          <div class="arch-step">
+            <div class="arch-num">04</div>
+            <h4>Видео MP4 + Плеер «Без рук»</h4>
+            <p>Рендеринг короткого HD-видео с плашками телеметрии и интерактивного пошагового режима с автопаузой и голосовыми командами для механика.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ВКЛАДКА 3: ВСЯ КНИГА (385 СТР.) И 62 ЦВЕТНЫЕ ЭЛЕКТРОСХЕМЫ -->
+    <section class="tab-panel" id="tab-book">
+      <div class="book-layout">
+        <aside class="book-sidebar">
+          <div class="book-sidebar-tabs">
+            <button class="bs-tab active" id="bsTabToc">Оглавление (16 разд.)</button>
+            <button class="bs-tab" id="bsTabDiagrams">Электросхемы (62)</button>
+          </div>
+          <div class="book-filter-wrap">
+            <input type="search" id="bookSidebarFilter" placeholder="Фильтр по разделам или схемам…" />
+          </div>
+          <div class="book-toc-tree" id="bookTocContainer"></div>
+          <div class="book-diagrams-list hidden" id="bookDiagramsContainer"></div>
+        </aside>
+
+        <div class="book-viewer-panel">
+          <div class="book-viewer-toolbar">
+            <div class="bv-nav">
+              <button class="btn-ghost-sm" id="pdfPrevPageBtn">◀ Назад</button>
+              <label class="page-jump-lbl">
+                Стр. PDF:
+                <input type="number" id="pdfPageInput" min="1" max="385" value="5" />
+                <span>из 385</span>
+              </label>
+              <span class="book-page-badge" id="bookPageNumberHint">(Стр. книги: 4)</span>
+              <button class="btn-ghost-sm" id="pdfNextPageBtn">Вперед ▶</button>
+            </div>
+            <div class="bv-zoom">
+              <button class="btn-ghost-sm" id="zoomOutPdfBtn">−</button>
+              <span id="pdfZoomLabel">100%</span>
+              <button class="btn-ghost-sm" id="zoomInPdfBtn">+</button>
+              <button class="btn-ghost-sm" id="togglePageTextBtn">📝 Текст страницы</button>
+            </div>
+          </div>
+
+          <div class="book-canvas-scroll" id="bookCanvasScroll">
+            <div class="pdf-loading-indicator hidden" id="pdfLoadingSpinner">Рендеринг страницы в высоком разрешении…</div>
+            <img id="pdfRenderedImage" src="./media/pages/p_5.jpg" alt="Страница руководства Ford Fiesta/Fusion" />
+            <iframe id="staticPdfIframe" class="hidden" title="PDF страница руководства" style="width:100%;height:70vh;border:none;border-radius:8px;background:#111827;"></iframe>
+          </div>
+
+          <div class="page-extracted-text hidden" id="pageExtractedTextBox">
+            <h4>Извлеченный текстовый слой страницы</h4>
+            <pre id="pageExtractedTextContent"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ВКЛАДКА 4: КОДЫ НЕИСПРАВНОСТЕЙ OBD-II -->
+    <section class="tab-panel" id="tab-dtc">
+      <div class="section-intro">
+        <div>
+          <h1>Расшифровка диагностических кодов неисправностей OBD-II (Ford Fiesta / Fusion)</h1>
+          <p>Полная база из Приложения 4 руководства: коды силового агрегата (<strong>P</strong>), кузовной электроники и подушек SRS (<strong>B</strong>), шасси и ABS/ESP (<strong>C</strong>), а также шины CAN (<strong>U</strong>).</p>
+        </div>
+      </div>
+
+      <div class="dtc-controls">
+        <input type="search" id="dtcSearchInput" placeholder="Введите код ошибки (например: P0300, P0171, B1318, U1900) или симптом (катушка, дроссель, датчик)…" />
+        <div class="filter-pills" id="dtcCategoryPills">
+          <button class="pill active" data-dtc-cat="ALL">Все коды</button>
+          <button class="pill" data-dtc-cat="P">P — Двигатель и КПП</button>
+          <button class="pill" data-dtc-cat="B">B — Кузов, ИММО, SRS</button>
+          <button class="pill" data-dtc-cat="C">C — ABS / ESP / ГУР</button>
+          <button class="pill" data-dtc-cat="U">U — Шина CAN</button>
+        </div>
+      </div>
+
+      <div class="dtc-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Код OBD-II</th>
+              <th>Система</th>
+              <th>Расшифровка неисправности по мануалу</th>
+              <th>Страница</th>
+            </tr>
+          </thead>
+          <tbody id="dtcTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ВКЛАДКА 5: МОМЕНТЫ ЗАТЯЖКИ, ГСМ, ЛАМПЫ И РЕГЛАМЕНТ ТО -->
+    <section class="tab-panel" id="tab-specs">
+      <div class="section-intro">
+        <div>
+          <h1>Инженерный справочник: Регламент ТО, Моменты затяжки, Объемы ГСМ и Лампы</h1>
+          <p>Сводные таблицы из Раздела 4 и Приложений 1–3 для быстрого подбора расходников и динамометрического контроля без перелистывания книги.</p>
+        </div>
+      </div>
+
+      <!-- Калькулятор регламента ТО по пробегу -->
+      <div class="specs-block">
+        <div class="specs-block-header">
+          <h3>Интерактивная карта регламентного ТО (интервал 20 000 км)</h3>
+          <div class="mileage-pills" id="mileageSelector">
+            <button class="pill active" data-km="km20">20 тыс. км</button>
+            <button class="pill" data-km="km40">40 тыс. км</button>
+            <button class="pill" data-km="km60">60 тыс. км</button>
+            <button class="pill" data-km="km80">80 тыс. км</button>
+            <button class="pill" data-km="km100">100 тыс. км</button>
+            <button class="pill" data-km="km120">120 тыс. км</button>
+          </div>
+        </div>
+        <div class="maintenance-grid" id="maintenanceCardsGrid"></div>
+      </div>
+
+      <div class="specs-two-col">
+        <!-- Моменты затяжки -->
+        <div class="specs-block">
+          <div class="specs-block-header">
+            <h3>Ключевые моменты затяжки резьбовых соединений</h3>
+            <input type="search" id="torqueFilterInput" class="input-sm" placeholder="Фильтр (ГБЦ, ступица, свечи…)" />
+          </div>
+          <div class="table-scroll">
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th>Агрегат</th>
+                  <th>Соединение / Деталь</th>
+                  <th>Момент затяжки</th>
+                </tr>
+              </thead>
+              <tbody id="torquesTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ГСМ и Лампы -->
+        <div class="specs-stack">
+          <div class="specs-block">
+            <div class="specs-block-header">
+              <h3>Заправочные объемы и спецификации Ford</h3>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Узел / Система</th>
+                    <th>Объем</th>
+                    <th>Допуск / Материал</th>
+                  </tr>
+                </thead>
+                <tbody id="fluidsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="specs-block">
+            <div class="specs-block-header">
+              <h3>Применяемые лампы освещения</h3>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Фонарь / Прибор</th>
+                    <th>Тип цоколя</th>
+                    <th>Мощность</th>
+                  </tr>
+                </thead>
+                <tbody id="lampsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Модальное окно полноразмерного фото шага -->
+  <div class="modal-backdrop hidden" id="lightboxModal">
+    <div class="modal-box lightbox-box">
+      <div class="modal-head">
+        <h3 id="lightboxTitle">Иллюстрация шага</h3>
+        <button class="btn-ghost-sm" id="closeLightboxBtn">Закрыть ✕</button>
+      </div>
+      <div class="lightbox-img-wrap">
+        <img id="lightboxImg" src="" alt="Увеличенное фото" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно демонстрации B2B-загрузки PDF в конвейер -->
+  <div class="modal-backdrop hidden" id="pipelineModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>Конвейер B2B-платформы: Превращение PDF-мануала в озвученные видеогиды</h3>
+        <button class="btn-ghost-sm" id="closePipelineModalBtn">Закрыть ✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-lead">
+          Сервис решает главную проблему СТО и парков спецтехники: превращает тысячестраничные заводские PDF-документы (включая английские и китайские мануалы <em>XCMG, Sany, JCB, Komatsu, КАМАЗ</em>) в короткие голосовые видеокарты по каждому узлу.
+        </p>
+        <div class="pipeline-demo-box">
+          <div class="demo-dropzone" id="demoDropzone">
+            <div class="drop-icon">📄 → 🎬</div>
+            <strong>Выберите тип документации для симуляции конвейера обработки:</strong>
+            <div class="demo-preset-btns">
+              <button class="btn-secondary demo-run-btn" data-preset="Экскаватор XCMG XE215C — Service Manual (940 стр., EN/CN)">
+                🚜 XCMG XE215C (Гидросистема)
+              </button>
+              <button class="btn-secondary demo-run-btn" data-preset="JCB 3CX Super — Workshop Manual (1280 стр., EN)">
+                🏗 JCB 3CX (КПП Powershift)
+              </button>
+              <button class="btn-secondary demo-run-btn" data-preset="КАМАЗ-54901 К5 — Руководство по ремонту ДВС Р6 (1150 стр., RU)">
+                🚛 КАМАЗ-54901 (ДВС и EBS)
+              </button>
+            </div>
+          </div>
+          <div class="demo-log hidden" id="demoPipelineLog"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
