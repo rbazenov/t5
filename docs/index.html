@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>МануалВидео PRO — Видеоруководства по ремонту авто и спецтехники с озвучкой</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=2" />
 </head>
 <body>
   <!-- Верхняя шапка -->
@@ -122,7 +122,7 @@
           <!-- БЛОК РЕЖИМА А: MP4 ВИДЕОПЛЕЕР -->
           <div class="video-stage-card" id="videoModeContainer">
             <div class="video-wrapper">
-              <video id="mainVideoPlayer" controls playsinline preload="metadata"></video>
+              <video id="mainVideoPlayer" src="./media/videos/oil-change.mp4" poster="./media/steps/oil_s09.jpg" controls playsinline preload="metadata"></video>
             </div>
             <div class="active-voice-transcript">
               <div class="transcript-badge">🎙 Закадровый голос диктора (текущий этап):</div>
@@ -496,6 +496,6 @@
     </div>
   </div>
 
-  <script src="./app.js"></script>
+  <script src="./app.js?v=2"></script>
 </body>
 </html>
