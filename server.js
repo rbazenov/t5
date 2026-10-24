@@ -13,8 +13,10 @@ const PUBLIC_DIR = path.join(ROOT_DIR, 'docs');
 const DATA_DIR = path.join(ROOT_DIR, 'data');
 const PDF_PATH = path.join(ROOT_DIR, 'Ford_Fiesta_Fusion_TR_Carinfo.com.ua_compressed.pdf');
 const CACHE_DIR = '/tmp/ford_pdf_page_cache';
+const UPLOADED_BOOKS_DIR = '/tmp/uploaded_books';
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
+fs.mkdirSync(UPLOADED_BOOKS_DIR, { recursive: true });
 
 const PYTHON_CANDIDATES = [
   path.join(ROOT_DIR, '.venv', 'bin', 'python'),
@@ -317,6 +319,18 @@ app.get('/api/search', (req, res) => {
     diagrams: matchedDiagrams,
     pages: matchedPages
   });
+});
+
+app.post('/api/books/upload', express.raw({ type: ['application/pdf', 'application/octet-stream'], limit: '150mb' }), (req, res) => {
+  const rawName = String(req.query.name || 'manual.pdf').replace(/[^a-zA-Z0-9._\u0400-\u04FF-]/g, '_');
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || buf.length < 100) {
+    return res.status(400).json({ error: 'Пустой или некорректный PDF-файл' });
+  }
+  const savedName = `${Date.now()}_${rawName}`;
+  const outPath = path.join(UPLOADED_BOOKS_DIR, savedName);
+  fs.writeFileSync(outPath, buf);
+  res.json({ ok: true, savedName, bytes: buf.length });
 });
 
 app.listen(PORT, HOST, () => {
