@@ -358,8 +358,7 @@
     $('hfStagePill').textContent = `ЭТАП ${ch.index} ИЗ ${g.chapters.length}`;
     $('hfStageTitle').textContent = ch.title;
 
-    $('hfCurrentPhoto').src = assetUrl(step.image);
-    $('hfStepCounterBadge').textContent = `Операция ${step.num} (фото ${state.currentStepInChapterIdx + 1}/${ch.steps.length})`;
+    $('hfStepCounterBadge').textContent = `Шаг ${step.num} (${state.currentStepInChapterIdx + 1}/${ch.steps.length}) • ИИ-синтез`;
     $('hfStepCaption').textContent = step.caption;
     $('hfStepTool').textContent = step.tool;
     $('hfChapterMetric').textContent = ch.keyMetric;
@@ -367,13 +366,12 @@
 
     const thumbs = $('hfStepThumbs');
     thumbs.innerHTML = ch.steps.map((st, sIdx) => `
-      <button class="hf-thumb-btn ${sIdx === state.currentStepInChapterIdx ? 'active' : ''}" data-sidx="${sIdx}" title="${escapeHtml(st.caption)}">
-        <img src="${escapeHtml(assetUrl(st.image))}" alt="Шаг ${st.num}" />
-        <span class="hf-thumb-num">#${st.num}</span>
+      <button class="hf-step-num-pill ${sIdx === state.currentStepInChapterIdx ? 'active' : ''}" data-sidx="${sIdx}" title="${escapeHtml(st.caption)}">
+        Шаг #${st.num}
       </button>
     `).join('');
 
-    thumbs.querySelectorAll('.hf-thumb-btn').forEach((btn) => {
+    thumbs.querySelectorAll('.hf-step-num-pill').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.currentStepInChapterIdx = parseInt(btn.dataset.sidx, 10);
         state.manualStepOverride = true;
@@ -466,11 +464,10 @@
     const ch = g.chapters[state.currentChapterIdx];
     if (!ch) return;
     const step = ch.steps[state.currentStepInChapterIdx] || ch.steps[0];
-    $('hfCurrentPhoto').src = assetUrl(step.image);
-    $('hfStepCounterBadge').textContent = `Операция ${step.num} (фото ${state.currentStepInChapterIdx + 1}/${ch.steps.length})`;
+    $('hfStepCounterBadge').textContent = `Шаг ${step.num} (${state.currentStepInChapterIdx + 1}/${ch.steps.length}) • ИИ-синтез`;
     $('hfStepCaption').textContent = step.caption;
     $('hfStepTool').textContent = step.tool;
-    document.querySelectorAll('#hfStepThumbs .hf-thumb-btn').forEach((b, i) => {
+    document.querySelectorAll('#hfStepThumbs .hf-step-num-pill').forEach((b, i) => {
       b.classList.toggle('active', i === state.currentStepInChapterIdx);
     });
   }
@@ -1369,67 +1366,48 @@
     });
   }
 
-  function sliceImageIntoThreeZones(img) {
-    if (!img || !img.width || !img.height) return [];
-    const zones = [
-      { x: 0.03, y: 0.06, w: 0.94, h: 0.42 },
-      { x: 0.03, y: 0.30, w: 0.94, h: 0.44 },
-      { x: 0.03, y: 0.52, w: 0.94, h: 0.43 }
-    ];
-    return zones.map((z) => {
-      const c = document.createElement('canvas');
-      const sw = Math.max(16, Math.round(img.width * z.w));
-      const sh = Math.max(16, Math.round(img.height * z.h));
-      c.width = sw;
-      c.height = sh;
-      c.getContext('2d').drawImage(
-        img,
-        Math.round(img.width * z.x),
-        Math.round(img.height * z.y),
-        sw,
-        sh,
-        0,
-        0,
-        sw,
-        sh
-      );
-      return c;
-    });
-  }
-
-  async function loadCropsForPdfPage(pdfPage) {
-    const p = Math.min(state.totalPdfPages, Math.max(1, parseInt(pdfPage, 10) || 1));
-
-    // 1. User-uploaded PDF book from IndexedDB
-    if (state.activeBookId !== 'ford-fiesta-fusion' && window.ManualBookEngine) {
-      const pdfDoc = await ensureUploadedPdfDoc(state.activeBookId);
-      if (pdfDoc) {
-        const fullDataUrl = await window.ManualBookEngine.renderPageToDataUrl(pdfDoc, p, { scale: 1.5, maxWidth: 1100, quality: 0.88 });
-        const im = await loadImageFromUrl(fullDataUrl);
-        if (im) return sliceImageIntoThreeZones(im);
-      }
+  const CUSTOM_TEXT_PRESETS = {
+    thermostat: {
+      title: 'Замена термостата системы охлаждения',
+      text: [
+        '1. Слейте охлаждающую жидкость из радиатора в чистую емкость на холодном двигателе.',
+        '2. Сожмите пассатижами пружинный хомут и снимите отводящий шланг с патрубка крышки термостата.',
+        '3. Выверните три болта крепления крышки корпуса термостата головкой на 8 и извлеките термостат.',
+        '4. Установите новое уплотнительное кольцо, посадите термостат в гнездо и затяните болты моментом 10 Н·м.',
+        '5. Залейте свежий антифриз в расширительный бачок до метки MAX и проверьте герметичность.'
+      ].join('\n')
+    },
+    alternator: {
+      title: 'Снятие и установка генератора и ремня',
+      text: [
+        '1. Отсоедините провод от клеммы «минус» аккумуляторной батареи гаечным ключом на 10.',
+        '2. Отсоедините колодку жгута проводов регулятора напряжения и отверните гайку силового вывода B+.',
+        '3. Ослабьте натяжной ролик и снимите ремень привода вспомогательных агрегатов со шкива генератора.',
+        '4. Выверните болты крепления генератора головкой на 13 и снимите генератор с кронштейна блока.',
+        '5. Установите генератор в обратной последовательности и затяните болты крепления моментом 47 Н·м.'
+      ].join('\n')
+    },
+    suspension: {
+      title: 'Замена шаровой опоры переднего рычага',
+      text: [
+        '1. Поднимите переднюю часть автомобиля, снимите колесо и очистите резьбу пальца металлической щеткой.',
+        '2. Отверните гайку стяжного болта поворотного кулака ключом Torx и извлеките стяжной болт.',
+        '3. Отсоедините палец шаровой опоры от поворотного кулака специальным съемником.',
+        '4. Выверните три болта крепления шаровой опоры к рычагу передней подвески и снимите опору.',
+        '5. Установите новую шаровую опору и затяните новый стяжной болт кулака моментом 52 Н·м.'
+      ].join('\n')
+    },
+    hydraulics: {
+      title: 'Замена уплотнений гидроцилиндра стрелы экскаватора',
+      text: [
+        '1. Опустите рабочее оборудование на грунт и сбросьте остаточное давление в гидробаке и магистралях РВД.',
+        '2. Отверните накидные гайки рукавов высокого давления и слейте рабочую жидкость в технологический поддон.',
+        '3. Выверните болты буксы гидроцилиндра, аккуратно извлеките хромированный шток с поршнем на стенд.',
+        '4. Очистите канавки, смажьте новые манжеты гидравлическим маслом и запрессуйте уплотнения.',
+        '5. Соберите гидроцилиндр, затяните болты крышки моментом 180 Н·м и прокачайте гидроконтур до 25 МПа.'
+      ].join('\n')
     }
-
-    // 2. Live Express backend page render
-    if (hasLiveBackend && state.activeBookId === 'ford-fiesta-fusion') {
-      const im = await loadImageFromUrl(`./api/page/${p}/image?dpi=150`);
-      if (im) return sliceImageIntoThreeZones(im);
-    }
-
-    // 3. Static GitHub Pages: render directly from ../Ford_Fiesta_Fusion_TR_Carinfo.com.ua_compressed.pdf via PDF.js!
-    if (window.ManualBookEngine && state.activeBookId === 'ford-fiesta-fusion') {
-      const pdfDoc = await ensureBuiltInFordPdfDoc();
-      if (pdfDoc) {
-        const fullDataUrl = await window.ManualBookEngine.renderPageToDataUrl(pdfDoc, p, { scale: 1.5, maxWidth: 1100, quality: 0.88 });
-        const im = await loadImageFromUrl(fullDataUrl);
-        if (im) return sliceImageIntoThreeZones(im);
-      }
-    }
-
-    // 4. Fallback studio colorful poster
-    const fallbackIm = await loadImageFromUrl('./media/posters/oil-hero.jpg');
-    return fallbackIm ? [fallbackIm] : [];
-  }
+  };
 
   async function refreshAgentWorkspace() {
     if (!window.BookVideoAgent) return;
@@ -1443,7 +1421,7 @@
       bookName
     );
 
-    $('agentOpsCountBadge').textContent = `${state.agentProcedures.length} опер.`;
+    $('agentOpsCountBadge').textContent = `${state.agentProcedures.length} текст.`;
     $('agentTotalFoundCount').textContent = String(state.agentProcedures.length);
     renderAgentProceduresSidebar();
 
@@ -1474,7 +1452,7 @@
             <div class="aop-title">${escapeHtml(p.title)}</div>
             <span class="torque-val-pill">~${p.estDurationSec} с</span>
           </div>
-          <div class="aop-meta">Стр. ${p.bookPage} • ${p.stepsText.length} шагов • ${escapeHtml(p.sectionTitle.slice(0, 38))}</div>
+          <div class="aop-meta">Текст стр. ${escapeHtml(String(p.bookPage))} • ${p.stepsText.length} шагов • ${escapeHtml(p.sectionTitle.slice(0, 36))}</div>
           <div class="aop-badges">
             ${p.actionsPreview.map((a) => `
               <span class="aop-chip" style="border-color:${escapeHtml(a.accent)}55;color:${escapeHtml(a.accent)};">
@@ -1494,12 +1472,29 @@
     });
   }
 
+  function renderAgentNluChips(shortVideo) {
+    const bar = $('agentNluChipsBar');
+    if (!bar || !shortVideo) return;
+    const subName = (shortVideo.subsystem && shortVideo.subsystem.name) || shortVideo.sectionTitle;
+    bar.innerHTML = [
+      `🧠 Агрегат: ${subName}`,
+      `⚡ Шагов: ${shortVideo.steps.length}`,
+      `🔩 Допуск: ${shortVideo.keyTorque}`,
+      `🚫 0% картинок из книги`
+    ].map((lbl) => `<span class="nlu-chip">${escapeHtml(lbl)}</span>`).join('');
+  }
+
   async function runAgentForProcedure(proc, autoPlay = true) {
     if (!window.BookVideoAgent || !shortAgentPlayer || !proc) return;
     stopAllPlayback();
 
     state.activeAgentProcId = proc.id;
     renderAgentProceduresSidebar();
+    $('agentMp4ResultBanner').classList.add('hidden');
+
+    // Sync analyzed text into the editable custom-text studio so user sees & can tweak the source text
+    $('agentCustomTitleInput').value = proc.title || '';
+    $('agentCustomTextInput').value = (proc.stepsText || []).map((s, i) => `${i + 1}. ${s}`).join('\n');
 
     const pill = $('agentPhaseIndicator');
     const msgEl = $('agentStatusMessage');
@@ -1507,17 +1502,17 @@
 
     const shortVideo = await window.BookVideoAgent.generateAnimatedShortFromProcedure(
       proc,
-      loadCropsForPdfPage,
       (phaseIdx, text) => {
-        pill.textContent = `⚙️ Фаза ${phaseIdx}/5`;
+        pill.textContent = `⚙️ Фаза ${phaseIdx}/4`;
         msgEl.textContent = text;
       }
     );
 
     pill.classList.remove('working');
-    pill.textContent = '✅ Оживлено в цвете';
+    pill.textContent = '✅ Синтез по тексту готов';
 
     state.currentShortVideo = shortVideo;
+    renderAgentNluChips(shortVideo);
     shortAgentPlayer.loadShort(shortVideo);
     $('agentScrubber').max = String(shortVideo.totalDuration || 30);
     $('agentScrubber').value = '0';
@@ -1529,8 +1524,65 @@
     }
   }
 
+  async function runAgentFromCustomTextarea() {
+    if (!window.BookVideoAgent) return;
+    const customTitle = ($('agentCustomTitleInput').value || '').trim();
+    const customText = ($('agentCustomTextInput').value || '').trim();
+    if (customText.length < 10) {
+      alert('Введите или выберите пример текста инструкции по ремонту (минимум одно предложение).');
+      return;
+    }
+    const proc = window.BookVideoAgent.analyzeRawTextToProcedure(customTitle, customText);
+    await runAgentForProcedure(proc, true);
+  }
+
+  async function requestServerMp4Generation() {
+    if (!state.currentShortVideo) return;
+    const btn = $('agentGenerateMp4Btn');
+    if (!hasLiveBackend) {
+      // Static GitHub Pages fallback -> record WebM directly in browser
+      $('agentExportWebmBtn').click();
+      return;
+    }
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = '⏳ Рендер MP4…';
+    $('agentPhaseIndicator').classList.add('working');
+    $('agentPhaseIndicator').textContent = '🎬 FFmpeg рендер';
+    $('agentStatusMessage').textContent = 'Серверный ИИ-агент синтезирует H.264 .mp4 видеофайл по тексту (без картинок книги)…';
+
+    try {
+      const resp = await fetch('./api/agent/generate-mp4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: state.currentShortVideo.title,
+          text: $('agentCustomTextInput').value || '',
+          steps: state.currentShortVideo.steps.map((s) => s.caption)
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) throw new Error(data.error || 'MP4 error');
+      const dlUrl = `.${data.videoUrl}`;
+      const mb = ((data.sizeBytes || 0) / (1024 * 1024)).toFixed(2);
+      $('agentMp4ResultText').textContent = `✅ Готов H.264 MP4 по тексту: «${state.currentShortVideo.title}» (${data.durationSec} с • ${mb} МБ • 0% сканов книги)`;
+      const link = $('agentMp4DownloadLink');
+      link.href = dlUrl;
+      link.download = data.filename || 'synthesized_repair.mp4';
+      $('agentMp4ResultBanner').classList.remove('hidden');
+      $('agentStatusMessage').textContent = 'MP4-файл успешно сгенерирован! Нажмите «⬇ Скачать готовый .MP4».';
+    } catch (err) {
+      $('agentStatusMessage').textContent = `Не удалось создать серверный MP4 (${err.message}), используйте экспорт .webm.`;
+    } finally {
+      $('agentPhaseIndicator').classList.remove('working');
+      $('agentPhaseIndicator').textContent = '✅ Синтез готов';
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
+  }
+
   function renderAgentStepsTimeline(shortVideo) {
-    $('agentStepsCountPill').textContent = `${shortVideo.steps.length} действий`;
+    $('agentStepsCountPill').textContent = `${shortVideo.steps.length} сцен`;
     $('agentStepsTimeline').innerHTML = shortVideo.steps.map((st, idx) => `
       <div class="agent-step-row ${idx === 0 ? 'active' : ''}" data-astep="${idx}">
         <div class="asr-head">
@@ -1563,7 +1615,6 @@
     const p = Math.min(state.totalPdfPages, Math.max(1, parseInt(pdfPage, 10) || 1));
     switchTab('agent');
 
-    // Find closest procedure on this page or synthesize directly from page text!
     const exact = state.agentProcedures.find((pr) => Math.abs(pr.pdfPage - p) <= 1);
     if (exact) {
       await runAgentForProcedure(exact, true);
@@ -1571,34 +1622,18 @@
     }
 
     const pgObj = (state.activePagesText && state.activePagesText[p - 1]) || { text: '' };
-    const sentences = (pgObj.text || '')
-      .split(/(?<=[.!?])\s+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length >= 20 && s.length <= 180)
-      .slice(0, 5);
-    const stepsText = sentences.length >= 2 ? sentences : [
-      `Изучите расположение узлов и крепежа на странице ${p} руководства.`,
-      `Выполните демонтаж и установку с соблюдением моментов затяжки и мер безопасности.`
-    ];
-    const adHocProc = {
-      id: `adhoc-p-${p}`,
-      title: `Операция со страницы ${p}`,
-      sectionTitle: `Страница PDF ${p}`,
-      category: 'engine',
-      pdfPage: p,
-      bookPage: state.activeBookId === 'ford-fiesta-fusion' ? Math.max(1, p - 1) : p,
-      stepsText,
-      actionsPreview: [],
-      hasTorque: false,
-      estDurationSec: stepsText.length * 8,
-      rawContext: pgObj.text || ''
-    };
-    await runAgentForProcedure(adHocProc, true);
+    const proc = window.BookVideoAgent.analyzeRawTextToProcedure(
+      `Текстовый разбор страницы ${p}`,
+      pgObj.text || `Выполните работы согласно тексту страницы ${p} руководства с соблюдением моментов затяжки.`
+    );
+    proc.pdfPage = p;
+    proc.bookPage = state.activeBookId === 'ford-fiesta-fusion' ? Math.max(1, p - 1) : p;
+    await runAgentForProcedure(proc, true);
   }
 
   function startHandsFreeActionLoop() {
     if (hfAnimRaf) return;
-    const canvas = $('hfLiveActionCanvas');
+    const canvas = $('hfSyntheticStageCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
@@ -1612,17 +1647,19 @@
         const ch = state.currentGuide.chapters[state.currentChapterIdx];
         const st = ch && (ch.steps[state.currentStepInChapterIdx] || ch.steps[0]);
         if (st) {
+          const sub = window.BookVideoAgent.detectSubsystemFromText(`${st.caption} ${state.currentGuide.title}`);
           const act = window.BookVideoAgent.classifyMechanicalAction(st.caption, st.tool, ch.keyMetric);
-          ctx.fillStyle = '#080d1a';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
           const tSec = nowMs / 1000;
-          const prog = (tSec * 0.25) % 1;
-          window.BookVideoAgent.drawAnimatedMechanismBox(
+          const prog = (tSec * 0.2) % 1;
+          ctx.fillStyle = '#070b15';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          window.BookVideoAgent.renderFullSyntheticScene(
             ctx,
             { x: 4, y: 4, w: canvas.width - 8, h: canvas.height - 8 },
-            act,
+            { subsystem: sub, action: act },
             tSec,
-            prog
+            prog,
+            '3d_hybrid'
           );
         }
       }
@@ -1670,23 +1707,34 @@
       $('agentCanvasContainer').parentElement.classList.add('wide-16-9');
       if (shortAgentPlayer) shortAgentPlayer.setAspect('16:9');
     });
-    $('agentColorizeToggle').addEventListener('change', (e) => {
-      if (shortAgentPlayer) shortAgentPlayer.setColorize(e.target.checked);
+    $('agentPureCadToggle').addEventListener('change', (e) => {
+      if (shortAgentPlayer) shortAgentPlayer.setVisualMode(e.target.checked ? 'pure_cad' : '3d_hybrid');
     });
     $('agentSpeedSelect').addEventListener('change', (e) => {
       if (shortAgentPlayer) shortAgentPlayer.setRate(parseFloat(e.target.value || '1'));
     });
-    $('agentOpenPdfPageBtn').addEventListener('click', () => {
-      if (state.currentShortVideo) {
-        openPdfPageInViewer(state.currentShortVideo.pdfPage);
-      }
+    $('agentGenerateMp4Btn').addEventListener('click', () => {
+      requestServerMp4Generation();
     });
     $('agentExportWebmBtn').addEventListener('click', () => {
       if (!shortAgentPlayer) return;
       const btn = $('agentExportWebmBtn');
       shortAgentPlayer.exportWebm((rec) => {
-        btn.textContent = rec ? '⏺ Запись ролика…' : '⏺ Скачать ролик (.webm)';
+        btn.textContent = rec ? '⏺ Запись…' : '⏺ Скачать .webm';
         btn.disabled = rec;
+      });
+    });
+    $('agentSynthesizeTextBtn').addEventListener('click', () => {
+      runAgentFromCustomTextarea();
+    });
+    document.querySelectorAll('.agent-preset-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const preset = CUSTOM_TEXT_PRESETS[btn.dataset.preset];
+        if (preset) {
+          $('agentCustomTitleInput').value = preset.title;
+          $('agentCustomTextInput').value = preset.text;
+          runAgentFromCustomTextarea();
+        }
       });
     });
     $('agentAutoNextBtn').addEventListener('click', () => {
@@ -1828,15 +1876,10 @@
       }
     });
 
-    // Lightbox zoom
-    const openLightbox = () => {
-      $('lightboxImg').src = $('hfCurrentPhoto').src;
-      $('lightboxTitle').textContent = $('hfStepCaption').textContent;
-      $('lightboxModal').classList.remove('hidden');
-    };
-    $('hfZoomBtn').addEventListener('click', openLightbox);
-    $('hfCurrentPhoto').addEventListener('click', openLightbox);
-    $('closeLightboxBtn').addEventListener('click', () => $('lightboxModal').classList.add('hidden'));
+    const closeLb = $('closeLightboxBtn');
+    if (closeLb) {
+      closeLb.addEventListener('click', () => $('lightboxModal').classList.add('hidden'));
+    }
 
     // Hotkeys in Hands-Free mode
     document.addEventListener('keydown', (e) => {

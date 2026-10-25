@@ -818,14 +818,12 @@
         foundTorques.push(`${tm[1]} ${tm[2]}`);
       }
 
-      // Render high-res visual frames (upper & lower crops of each page so the player zooms into clear details)
-      const stepVisuals = [];
-      for (const gp of pagesForGuide) {
-        const fullImg = await renderPageToDataUrl(pdfDoc, gp, { scale: 1.45, maxWidth: 1050, quality: 0.85 });
-        const topHalf = await renderPageToDataUrl(pdfDoc, gp, { scale: 1.55, maxWidth: 1050, quality: 0.85, cropBox: { x: 0.03, y: 0.06, w: 0.94, h: 0.48 } });
-        const botHalf = await renderPageToDataUrl(pdfDoc, gp, { scale: 1.55, maxWidth: 1050, quality: 0.85, cropBox: { x: 0.03, y: 0.46, w: 0.94, h: 0.48 } });
-        stepVisuals.push(fullImg, topHalf, botHalf);
-      }
+      // Detect subsystem from text — ZERO book page crops inserted into videos!
+      const agent = window.BookVideoAgent;
+      const detectedSub = agent
+        ? agent.detectSubsystemFromText(`${item.title} ${joinedText.slice(0, 600)}`)
+        : { poster: './media/posters/oil-hero.jpg', name: 'Узел агрегата' };
+      onSubProgress(((idx + 0.5) / chosen.length) * 100, `Синтез анимационной сцены по тексту ${idx + 1} из ${chosen.length} (${detectedSub.name})…`);
 
       // Split into 2 logical chapters if >= 4 steps, else 1 chapter
       const cappedSteps = extractedStepsText.slice(0, 8);
@@ -838,10 +836,12 @@
       const chapters = groups.map((grp, chIdx) => {
         const stepsObjs = grp.map((cap, sIdx) => {
           const globalNum = chIdx * mid + sIdx + 1;
-          const img = stepVisuals[(globalNum - 1) % stepVisuals.length];
+          const stepSub = agent
+            ? agent.detectSubsystemFromText(`${cap} ${item.title}`)
+            : detectedSub;
           return {
             num: globalNum,
-            image: img,
+            image: stepSub.poster,
             caption: cap.slice(0, 175),
             tool: toolMatch ? toolMatch[1].slice(0, 65) : 'Стандартный слесарный инструмент'
           };
@@ -886,7 +886,7 @@
         interval: 'Согласно регламенту ТО',
         engines: [userMeta.engines || 'Все модификации книги'],
         videoUrl: null,
-        posterUrl: stepVisuals[0],
+        posterUrl: detectedSub.poster,
         totalDuration: cursorTime,
         tools: toolMatch
           ? toolMatch[1].split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 6)
@@ -1156,51 +1156,24 @@
       ctx.font = 'bold 13px Inter, system-ui, sans-serif';
       drawWrappedText(ctx, ch.warning, 62, 590, 372, 18, 2);
 
-      // Right Stage Viewport with Vivid Colorization + 60 FPS Action Animation
+      // Right Stage Viewport: 100% Synthetic Scene from Text (ZERO book scans!)
       roundRect(ctx, 490, 94, 762, 562, 14, '#111827', '#26334d');
-      const imgObj = this.imageCache.get(step.image);
       const agent = window.BookVideoAgent;
-      const stepAction = agent
-        ? agent.classifyMechanicalAction(step.caption, step.tool, ch.keyMetric)
-        : null;
-
-      if (imgObj && imgObj.width > 0) {
-        const displayImg = agent
-          ? agent.colorizeBookCanvas(imgObj, `${g.slug}_${globalStepNum}`, true)
-          : imgObj;
-        ctx.save();
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(504, 108, 734, 534, 10);
-        } else {
-          ctx.rect(504, 108, 734, 534);
-        }
-        ctx.clip();
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(504, 108, 734, 534);
-
-        const zoom = 1.02 + 0.08 * stepLocalProg;
-        const baseScale = Math.min(714 / displayImg.width, 514 / displayImg.height);
-        const dw = displayImg.width * baseScale * zoom;
-        const dh = displayImg.height * baseScale * zoom;
-        const dx = 504 + (734 - dw) / 2;
-        const dy = 108 + (534 - dh) / 2;
-        ctx.drawImage(displayImg, dx, dy, dw, dh);
-        ctx.restore();
+      if (agent) {
+        const stepSub = agent.detectSubsystemFromText(`${step.caption} ${g.title}`);
+        const stepAction = agent.classifyMechanicalAction(step.caption, step.tool, ch.keyMetric);
+        agent.renderFullSyntheticScene(
+          ctx,
+          { x: 502, y: 106, w: 738, h: 538 },
+          { subsystem: stepSub, action: stepAction },
+          this.currentTime,
+          stepLocalProg,
+          '3d_hybrid'
+        );
       } else {
         ctx.fillStyle = '#64748b';
         ctx.font = '16px Inter, system-ui, sans-serif';
-        ctx.fillText('Загрузка иллюстрации из PDF…', 770, 375);
-      }
-
-      if (agent && stepAction) {
-        agent.drawAnimatedMechanismBox(
-          ctx,
-          { x: 842, y: 422, w: 396, h: 218 },
-          stepAction,
-          this.currentTime,
-          stepLocalProg
-        );
+        ctx.fillText('Инициализация синтезатора сцен…', 730, 375);
       }
 
       // Bottom Progress Bar

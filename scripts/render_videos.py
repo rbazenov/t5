@@ -481,12 +481,11 @@ def draw_animated_action_overlay(stage_rgba: Image.Image, action_kind: str, acti
     return Image.alpha_composite(stage_rgba, overlay)
 
 
-def compose_step_stage_frame(hero_im: Image.Image, book_photo_im: Image.Image, step_num: int,
+def compose_step_stage_frame(hero_im: Image.Image, step_num: int, tool_str: str,
                              action_kind: str, action_label: str, action_val: str,
                              t_sec: float, prog: float) -> Image.Image:
-    """Builds one 730x530 full-color animated frame combining hero scene + colorized book photo + 24fps mechanism."""
+    """Builds one 730x530 full-color synthesized animated frame WITHOUT any book photos."""
     W, H = 730, 530
-    # Smooth Ken Burns zoom + pan on crisp 3D colorful studio illustration
     zoom = 1.02 + 0.065 * prog
     pan_x = 0.5 + 0.35 * math.sin(prog * math.pi - 0.5)
     cw, ch = int(hero_im.width / zoom), int(hero_im.height / zoom)
@@ -495,21 +494,13 @@ def compose_step_stage_frame(hero_im: Image.Image, book_photo_im: Image.Image, s
     cropped = hero_im.crop((x0, y0, x0 + cw, y0 + ch)).resize((W, H), Image.Resampling.BILINEAR)
     stage_rgba = cropped.convert("RGBA")
 
-    # Subtle dark vignette at bottom-left & bottom-right so insets pop with crisp contrast
+    # Top-left Agent Text-Synthesis HUD pill (ZERO book scans!)
     grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(grad)
-    gd.rounded_rectangle([12, 12, 296, 232], radius=12, fill=(10, 15, 28, 228), outline=(56, 189, 248, 210), width=2)
+    gd.rounded_rectangle([14, 14, 412, 74], radius=10, fill=(10, 15, 28, 224), outline=(56, 189, 248, 210), width=2)
+    gd.text((26, 22), f"● ИИ-СИНТЕЗ СЦЕНЫ ПО ТЕКСТУ • ШАГ #{step_num}", font=F_LABEL, fill=(56, 189, 248, 255))
+    gd.text((26, 44), f"Инструмент узла: {tool_str[:38]}", font=F_ANIM_SM, fill=(226, 232, 240, 255))
     stage_rgba = Image.alpha_composite(stage_rgba, grad)
-
-    # Paste enhanced colorful original manual photo inside the top-left PIP frame (268 x 182)
-    pip = book_photo_im.copy()
-    pip.thumbnail((266, 178), Image.Resampling.LANCZOS)
-    px = 12 + (284 - pip.width) // 2
-    py = 42 + (182 - pip.height) // 2
-    stage_rgba.paste(pip.convert("RGBA"), (px, py))
-
-    lbl_draw = ImageDraw.Draw(stage_rgba)
-    lbl_draw.text((22, 19), f"● КАДР КНИГИ (ЦВЕТ) • ОПЕРАЦИЯ #{step_num}", font=F_LABEL, fill=(125, 211, 252, 255))
 
     # Add 24fps live mechanical action overlay
     stage_rgba = draw_animated_action_overlay(stage_rgba, action_kind, action_label, action_val, t_sec, prog)
@@ -568,11 +559,6 @@ def render_guide_video(guide, sample_frame_out=None):
                 st["actionLabel"] = action_label
                 st["actionVal"] = action_val
 
-                # Enhance & colorize the step photo on disk once too
-                disk_photo_path = "docs" + st["image"]
-                enhanced_book_im = enhance_and_colorize_book_photo(disk_photo_path)
-                enhanced_book_im.save(disk_photo_path, quality=92)
-
                 hud_bg = draw_hud_background(guide, ch, st, total_steps, global_idx, action_label)
                 active_hero = hero_b if (slug == "spark-plugs" and s_i >= 3) else hero_a
 
@@ -580,7 +566,7 @@ def render_guide_video(guide, sample_frame_out=None):
                     t_sec = f_idx / fps
                     prog = f_idx / max(1, frames - 1)
                     stage_rgb = compose_step_stage_frame(
-                        active_hero, enhanced_book_im, st["num"],
+                        active_hero, st["num"], st["tool"],
                         action_kind, action_label, action_val, t_sec, prog
                     )
                     frame_full = hud_bg.copy()

@@ -14,9 +14,11 @@ const DATA_DIR = path.join(ROOT_DIR, 'data');
 const PDF_PATH = path.join(ROOT_DIR, 'Ford_Fiesta_Fusion_TR_Carinfo.com.ua_compressed.pdf');
 const CACHE_DIR = '/tmp/ford_pdf_page_cache';
 const UPLOADED_BOOKS_DIR = '/tmp/uploaded_books';
+const AGENT_VIDEOS_DIR = '/tmp/agent_videos';
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 fs.mkdirSync(UPLOADED_BOOKS_DIR, { recursive: true });
+fs.mkdirSync(AGENT_VIDEOS_DIR, { recursive: true });
 
 const PYTHON_CANDIDATES = [
   path.join(ROOT_DIR, '.venv', 'bin', 'python'),
@@ -319,6 +321,46 @@ app.get('/api/search', (req, res) => {
     diagrams: matchedDiagrams,
     pages: matchedPages
   });
+});
+
+app.use('/api/agent/videos', express.static(AGENT_VIDEOS_DIR, {
+  acceptRanges: true,
+  maxAge: '1h'
+}));
+
+app.post('/api/agent/generate-mp4', (req, res) => {
+  const payload = req.body || {};
+  if (!payload.title && !payload.text && !Array.isArray(payload.steps)) {
+    return res.status(400).json({ error: 'Передайте текст или шаги для генерации видео' });
+  }
+  const jobId = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const inJsonPath = path.join(AGENT_VIDEOS_DIR, `${jobId}.json`);
+  const outMp4Name = `${jobId}.mp4`;
+  const outMp4Path = path.join(AGENT_VIDEOS_DIR, outMp4Name);
+  fs.writeFileSync(inJsonPath, JSON.stringify(payload), 'utf8');
+
+  execFile(
+    PYTHON_BIN,
+    [path.join(ROOT_DIR, 'scripts', 'agent_text_to_video.py'), inJsonPath, outMp4Path],
+    { cwd: ROOT_DIR, timeout: 60000 },
+    (err, stdout, stderr) => {
+      try { fs.unlinkSync(inJsonPath); } catch (_) {}
+      if (err || !fs.existsSync(outMp4Path)) {
+        return res.status(500).json({
+          error: 'Ошибка синтеза MP4 по тексту',
+          details: String(stderr || (err && err.message) || '').slice(-300)
+        });
+      }
+      let meta = {};
+      try { meta = JSON.parse(String(stdout || '{}').trim()); } catch (_) {}
+      res.json({
+        ok: true,
+        videoUrl: `/api/agent/videos/${outMp4Name}`,
+        filename: outMp4Name,
+        ...meta
+      });
+    }
+  );
 });
 
 app.post('/api/books/upload', express.raw({ type: ['application/pdf', 'application/octet-stream'], limit: '150mb' }), (req, res) => {
