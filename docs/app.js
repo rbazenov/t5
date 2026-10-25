@@ -29,7 +29,12 @@
     selectedMileage: 'km20',
     speechRec: null,
     voiceListening: false,
-    pendingPdfFile: null
+    pendingPdfFile: null,
+    builtInPdfDoc: null,
+    agentProcedures: [],
+    agentCategory: 'all',
+    activeAgentProcId: null,
+    currentShortVideo: null
   };
 
   try {
@@ -42,6 +47,8 @@
   let hasLiveBackend = true;
   let fordStaticPagesText = null;
   let cinemaPlayer = null;
+  let shortAgentPlayer = null;
+  let hfAnimRaf = null;
 
   function assetUrl(u) {
     if (!u) return '';
@@ -72,6 +79,7 @@
     if (v && !v.paused) v.pause();
     if (a && !a.paused) a.pause();
     if (cinemaPlayer && cinemaPlayer.playing) cinemaPlayer.pause();
+    if (shortAgentPlayer && shortAgentPlayer.playing) shortAgentPlayer.pause();
     if (window.ManualBookEngine) {
       window.ManualBookEngine.SpeechEngine.stop();
     }
@@ -109,12 +117,19 @@
       state.activeBookId = 'ford-fiesta-fusion';
       state.guides = state.builtInFordBook.guides;
       state.manual = state.builtInFordBook.manual;
+      if (!fordStaticPagesText) {
+        try {
+          fordStaticPagesText = await fetch('./data/pages_text.json').then((r) => r.json());
+        } catch (_) {
+          fordStaticPagesText = [];
+        }
+      }
       state.activePagesText = fordStaticPagesText;
       state.totalPdfPages = 385;
       state.currentPdfPage = 5;
 
-      $('playerHeroTitle').textContent = 'Короткие видеоруководства с закадровым голосом';
-      $('playerHeroSub').innerHTML = 'Реальные пошаговые иллюстрации, моменты затяжки и предупреждения из руководства <strong>Ford Fiesta / Fusion</strong> с дикторской озвучкой и режимом «Свободные руки» для работы в боксе или в поле.';
+      $('playerHeroTitle').textContent = 'Цветные анимированные видеоруководства с голосом диктора';
+      $('playerHeroSub').innerHTML = 'Каждое действие оживлено в цвете: вращение ключей, динамометрическая затяжка, слив/залив жидкостей и фазы ГРМ из книги <strong>Ford Fiesta / Fusion</strong> + ИИ-Агент коротких видео по всем разделам.';
       $('guidesCountBadge').textContent = `${state.guides.length} MP4`;
     } else {
       const userBook = state.uploadedBooks.find((b) => b.id === bookId);
@@ -125,9 +140,8 @@
       state.totalPdfPages = userBook.pagesCount || 1;
       state.currentPdfPage = 1;
 
-      const titleFull = escapeHtml(userBook.fullTitle || `${userBook.brand} ${userBook.model}`);
-      $('playerHeroTitle').textContent = `Видеогиды по книге: ${userBook.fullTitle || (userBook.brand + ' ' + userBook.model)}`;
-      $('playerHeroSub').innerHTML = `Автоматически оцифровано из вашего файла <strong>${escapeHtml(userBook.fileName)}</strong> (${userBook.pagesCount} стр.): выделены операции ремонта, иллюстрации и синтез дикторской озвучки.`;
+      $('playerHeroTitle').textContent = `Анимированные видеогиды: ${userBook.fullTitle || (userBook.brand + ' ' + userBook.model)}`;
+      $('playerHeroSub').innerHTML = `Автоматически оцифровано и раскрашено из вашего файла <strong>${escapeHtml(userBook.fileName)}</strong> (${userBook.pagesCount} стр.): каждое действие оживлено с русской озвучкой.`;
       $('guidesCountBadge').textContent = `${state.guides.length} гид.`;
     }
 
@@ -145,6 +159,7 @@
     renderDtcTable();
     renderSpecsTab();
     loadPdfPage(state.currentPdfPage);
+    await refreshAgentWorkspace();
   }
 
   async function ensureUploadedPdfDoc(bookId) {
@@ -161,6 +176,9 @@
 
   /* Navigation */
   function switchTab(tabId) {
+    if (tabId !== state.activeTab) {
+      stopAllPlayback();
+    }
     state.activeTab = tabId;
     document.querySelectorAll('.nav-tab').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
@@ -168,9 +186,6 @@
     document.querySelectorAll('.tab-panel').forEach((panel) => {
       panel.classList.toggle('active', panel.id === `tab-${tabId}`);
     });
-    if (tabId !== 'player') {
-      stopAllPlayback();
-    }
   }
 
   function openPdfPageInViewer(pdfPage) {
@@ -747,9 +762,25 @@
 
     const dpi = state.pdfZoom >= 140 ? 200 : 150;
     img.onload = () => spinner.classList.add('hidden');
-    img.onerror = () => {
+    img.onerror = async () => {
+      if (hasLiveBackend) {
+        spinner.classList.add('hidden');
+        return;
+      }
+      if (window.ManualBookEngine) {
+        const pdfDoc = await ensureBuiltInFordPdfDoc();
+        if (pdfDoc) {
+          img.onerror = null;
+          const dataUrl = await window.ManualBookEngine.renderPageToDataUrl(pdfDoc, p, {
+            scale: state.pdfZoom >= 140 ? 1.85 : 1.4,
+            maxWidth: 1500,
+            quality: 0.88
+          });
+          img.src = dataUrl;
+          return;
+        }
+      }
       spinner.classList.add('hidden');
-      if (hasLiveBackend) return;
       img.classList.add('hidden');
       if (iframe) {
         iframe.classList.remove('hidden');
@@ -1306,8 +1337,377 @@
     });
   }
 
+  /* =========================================================================
+   * AI Book-to-Short-Video Agent & Live 60 FPS Hands-Free Action Loop
+   * ========================================================================= */
+  async function ensureBuiltInFordPdfDoc() {
+    if (state.builtInPdfDoc) return state.builtInPdfDoc;
+    if (!window.pdfjsLib) return null;
+    if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.js';
+    }
+    try {
+      const task = window.pdfjsLib.getDocument({
+        url: '../Ford_Fiesta_Fusion_TR_Carinfo.com.ua_compressed.pdf',
+        cMapUrl: './vendor/pdfjs/cmaps/',
+        cMapPacked: true
+      });
+      state.builtInPdfDoc = await task.promise;
+      return state.builtInPdfDoc;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function loadImageFromUrl(url) {
+    return new Promise((resolve) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = url;
+    });
+  }
+
+  function sliceImageIntoThreeZones(img) {
+    if (!img || !img.width || !img.height) return [];
+    const zones = [
+      { x: 0.03, y: 0.06, w: 0.94, h: 0.42 },
+      { x: 0.03, y: 0.30, w: 0.94, h: 0.44 },
+      { x: 0.03, y: 0.52, w: 0.94, h: 0.43 }
+    ];
+    return zones.map((z) => {
+      const c = document.createElement('canvas');
+      const sw = Math.max(16, Math.round(img.width * z.w));
+      const sh = Math.max(16, Math.round(img.height * z.h));
+      c.width = sw;
+      c.height = sh;
+      c.getContext('2d').drawImage(
+        img,
+        Math.round(img.width * z.x),
+        Math.round(img.height * z.y),
+        sw,
+        sh,
+        0,
+        0,
+        sw,
+        sh
+      );
+      return c;
+    });
+  }
+
+  async function loadCropsForPdfPage(pdfPage) {
+    const p = Math.min(state.totalPdfPages, Math.max(1, parseInt(pdfPage, 10) || 1));
+
+    // 1. User-uploaded PDF book from IndexedDB
+    if (state.activeBookId !== 'ford-fiesta-fusion' && window.ManualBookEngine) {
+      const pdfDoc = await ensureUploadedPdfDoc(state.activeBookId);
+      if (pdfDoc) {
+        const fullDataUrl = await window.ManualBookEngine.renderPageToDataUrl(pdfDoc, p, { scale: 1.5, maxWidth: 1100, quality: 0.88 });
+        const im = await loadImageFromUrl(fullDataUrl);
+        if (im) return sliceImageIntoThreeZones(im);
+      }
+    }
+
+    // 2. Live Express backend page render
+    if (hasLiveBackend && state.activeBookId === 'ford-fiesta-fusion') {
+      const im = await loadImageFromUrl(`./api/page/${p}/image?dpi=150`);
+      if (im) return sliceImageIntoThreeZones(im);
+    }
+
+    // 3. Static GitHub Pages: render directly from ../Ford_Fiesta_Fusion_TR_Carinfo.com.ua_compressed.pdf via PDF.js!
+    if (window.ManualBookEngine && state.activeBookId === 'ford-fiesta-fusion') {
+      const pdfDoc = await ensureBuiltInFordPdfDoc();
+      if (pdfDoc) {
+        const fullDataUrl = await window.ManualBookEngine.renderPageToDataUrl(pdfDoc, p, { scale: 1.5, maxWidth: 1100, quality: 0.88 });
+        const im = await loadImageFromUrl(fullDataUrl);
+        if (im) return sliceImageIntoThreeZones(im);
+      }
+    }
+
+    // 4. Fallback studio colorful poster
+    const fallbackIm = await loadImageFromUrl('./media/posters/oil-hero.jpg');
+    return fallbackIm ? [fallbackIm] : [];
+  }
+
+  async function refreshAgentWorkspace() {
+    if (!window.BookVideoAgent) return;
+    const bookName = state.activeBookId === 'ford-fiesta-fusion'
+      ? 'Ford Fiesta / Fusion'
+      : ((state.uploadedBooks.find((b) => b.id === state.activeBookId) || {}).fullTitle || 'Загруженная книга');
+
+    state.agentProcedures = window.BookVideoAgent.scanBookForProcedures(
+      state.manual,
+      state.activePagesText,
+      bookName
+    );
+
+    $('agentOpsCountBadge').textContent = `${state.agentProcedures.length} опер.`;
+    $('agentTotalFoundCount').textContent = String(state.agentProcedures.length);
+    renderAgentProceduresSidebar();
+
+    if (state.agentProcedures.length > 0) {
+      await runAgentForProcedure(state.agentProcedures[0], false);
+    }
+  }
+
+  function renderAgentProceduresSidebar() {
+    const q = ($('agentProcSearchInput').value || '').trim().toLowerCase();
+    const filtered = state.agentProcedures.filter((p) => {
+      if (state.agentCategory !== 'all') {
+        if (state.agentCategory === 'transmission') {
+          if (p.category !== 'transmission' && p.category !== 'body_maint') return false;
+        } else if (p.category !== state.agentCategory) {
+          return false;
+        }
+      }
+      if (!q) return true;
+      return (`${p.title} ${p.sectionTitle}`).toLowerCase().includes(q);
+    });
+
+    $('agentProceduresList').innerHTML = filtered.slice(0, 80).map((p) => {
+      const isAct = p.id === state.activeAgentProcId;
+      return `
+        <div class="agent-op-card ${isAct ? 'active' : ''}" data-aproc="${escapeHtml(p.id)}">
+          <div class="aop-top">
+            <div class="aop-title">${escapeHtml(p.title)}</div>
+            <span class="torque-val-pill">~${p.estDurationSec} с</span>
+          </div>
+          <div class="aop-meta">Стр. ${p.bookPage} • ${p.stepsText.length} шагов • ${escapeHtml(p.sectionTitle.slice(0, 38))}</div>
+          <div class="aop-badges">
+            ${p.actionsPreview.map((a) => `
+              <span class="aop-chip" style="border-color:${escapeHtml(a.accent)}55;color:${escapeHtml(a.accent)};">
+                ${escapeHtml(a.icon)} ${escapeHtml(a.specVal)}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('') || '<div style="padding:14px;color:#94a3b8;font-size:0.85rem;">Операции по фильтру не найдены</div>';
+
+    $('agentProceduresList').querySelectorAll('.agent-op-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const proc = state.agentProcedures.find((p) => p.id === card.dataset.aproc);
+        if (proc) runAgentForProcedure(proc, true);
+      });
+    });
+  }
+
+  async function runAgentForProcedure(proc, autoPlay = true) {
+    if (!window.BookVideoAgent || !shortAgentPlayer || !proc) return;
+    stopAllPlayback();
+
+    state.activeAgentProcId = proc.id;
+    renderAgentProceduresSidebar();
+
+    const pill = $('agentPhaseIndicator');
+    const msgEl = $('agentStatusMessage');
+    pill.classList.add('working');
+
+    const shortVideo = await window.BookVideoAgent.generateAnimatedShortFromProcedure(
+      proc,
+      loadCropsForPdfPage,
+      (phaseIdx, text) => {
+        pill.textContent = `⚙️ Фаза ${phaseIdx}/5`;
+        msgEl.textContent = text;
+      }
+    );
+
+    pill.classList.remove('working');
+    pill.textContent = '✅ Оживлено в цвете';
+
+    state.currentShortVideo = shortVideo;
+    shortAgentPlayer.loadShort(shortVideo);
+    $('agentScrubber').max = String(shortVideo.totalDuration || 30);
+    $('agentScrubber').value = '0';
+    $('agentTimeLabel').textContent = `0:00 / ${fmtTime(shortVideo.totalDuration)}`;
+    renderAgentStepsTimeline(shortVideo);
+
+    if (autoPlay) {
+      shortAgentPlayer.play();
+    }
+  }
+
+  function renderAgentStepsTimeline(shortVideo) {
+    $('agentStepsCountPill').textContent = `${shortVideo.steps.length} действий`;
+    $('agentStepsTimeline').innerHTML = shortVideo.steps.map((st, idx) => `
+      <div class="agent-step-row ${idx === 0 ? 'active' : ''}" data-astep="${idx}">
+        <div class="asr-head">
+          <span style="color:${escapeHtml(st.action.accent)};">${escapeHtml(st.action.icon)} Шаг ${st.num}: ${escapeHtml(st.action.badge)}</span>
+          <span class="torque-val-pill">${escapeHtml(st.action.specVal)}</span>
+        </div>
+        <div class="asr-caption">${escapeHtml(st.caption)}</div>
+      </div>
+    `).join('');
+
+    $('agentStepsTimeline').querySelectorAll('.agent-step-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const idx = parseInt(row.dataset.astep, 10);
+        const st = shortVideo.steps[idx];
+        if (st && shortAgentPlayer) {
+          shortAgentPlayer.seek(st.startTime + 0.05);
+          shortAgentPlayer.play();
+        }
+      });
+    });
+  }
+
+  function highlightAgentStepRow(stepIdx) {
+    document.querySelectorAll('#agentStepsTimeline .agent-step-row').forEach((el, i) => {
+      el.classList.toggle('active', i === stepIdx);
+    });
+  }
+
+  async function animateArbitraryBookPage(pdfPage) {
+    const p = Math.min(state.totalPdfPages, Math.max(1, parseInt(pdfPage, 10) || 1));
+    switchTab('agent');
+
+    // Find closest procedure on this page or synthesize directly from page text!
+    const exact = state.agentProcedures.find((pr) => Math.abs(pr.pdfPage - p) <= 1);
+    if (exact) {
+      await runAgentForProcedure(exact, true);
+      return;
+    }
+
+    const pgObj = (state.activePagesText && state.activePagesText[p - 1]) || { text: '' };
+    const sentences = (pgObj.text || '')
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 20 && s.length <= 180)
+      .slice(0, 5);
+    const stepsText = sentences.length >= 2 ? sentences : [
+      `Изучите расположение узлов и крепежа на странице ${p} руководства.`,
+      `Выполните демонтаж и установку с соблюдением моментов затяжки и мер безопасности.`
+    ];
+    const adHocProc = {
+      id: `adhoc-p-${p}`,
+      title: `Операция со страницы ${p}`,
+      sectionTitle: `Страница PDF ${p}`,
+      category: 'engine',
+      pdfPage: p,
+      bookPage: state.activeBookId === 'ford-fiesta-fusion' ? Math.max(1, p - 1) : p,
+      stepsText,
+      actionsPreview: [],
+      hasTorque: false,
+      estDurationSec: stepsText.length * 8,
+      rawContext: pgObj.text || ''
+    };
+    await runAgentForProcedure(adHocProc, true);
+  }
+
+  function startHandsFreeActionLoop() {
+    if (hfAnimRaf) return;
+    const canvas = $('hfLiveActionCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const tick = (nowMs) => {
+      if (
+        state.activeTab === 'player' &&
+        state.playerMode === 'steps' &&
+        state.currentGuide &&
+        window.BookVideoAgent
+      ) {
+        const ch = state.currentGuide.chapters[state.currentChapterIdx];
+        const st = ch && (ch.steps[state.currentStepInChapterIdx] || ch.steps[0]);
+        if (st) {
+          const act = window.BookVideoAgent.classifyMechanicalAction(st.caption, st.tool, ch.keyMetric);
+          ctx.fillStyle = '#080d1a';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          const tSec = nowMs / 1000;
+          const prog = (tSec * 0.25) % 1;
+          window.BookVideoAgent.drawAnimatedMechanismBox(
+            ctx,
+            { x: 4, y: 4, w: canvas.width - 8, h: canvas.height - 8 },
+            act,
+            tSec,
+            prog
+          );
+        }
+      }
+      hfAnimRaf = requestAnimationFrame(tick);
+    };
+    hfAnimRaf = requestAnimationFrame(tick);
+  }
+
   /* Bind Events & Init */
   async function init() {
+    // Initialize ShortAnimatedVideoPlayer for AI Book-to-Video Agent tab
+    if (window.BookVideoAgent) {
+      shortAgentPlayer = new window.BookVideoAgent.ShortAnimatedVideoPlayer($('agentShortCanvas'), {
+        onTimeUpdate: (cur, total) => {
+          $('agentScrubber').value = String(cur);
+          $('agentTimeLabel').textContent = `${fmtTime(cur)} / ${fmtTime(total)}`;
+        },
+        onStateChange: (isPlaying) => {
+          $('agentPlayBtn').textContent = isPlaying ? '⏸ Пауза' : '▶ Пуск анимации с голосом';
+        },
+        onStepChange: (sIdx) => {
+          highlightAgentStepRow(sIdx);
+        }
+      });
+    }
+
+    $('agentPlayBtn').addEventListener('click', () => {
+      if (shortAgentPlayer) shortAgentPlayer.toggle();
+    });
+    $('agentShortCanvas').addEventListener('click', () => {
+      if (shortAgentPlayer) shortAgentPlayer.toggle();
+    });
+    $('agentScrubber').addEventListener('input', (e) => {
+      if (shortAgentPlayer) shortAgentPlayer.seek(parseFloat(e.target.value || '0'));
+    });
+    $('agentAspect916Btn').addEventListener('click', () => {
+      $('agentAspect916Btn').classList.add('active');
+      $('agentAspect169Btn').classList.remove('active');
+      $('agentCanvasContainer').parentElement.classList.remove('wide-16-9');
+      if (shortAgentPlayer) shortAgentPlayer.setAspect('9:16');
+    });
+    $('agentAspect169Btn').addEventListener('click', () => {
+      $('agentAspect169Btn').classList.add('active');
+      $('agentAspect916Btn').classList.remove('active');
+      $('agentCanvasContainer').parentElement.classList.add('wide-16-9');
+      if (shortAgentPlayer) shortAgentPlayer.setAspect('16:9');
+    });
+    $('agentColorizeToggle').addEventListener('change', (e) => {
+      if (shortAgentPlayer) shortAgentPlayer.setColorize(e.target.checked);
+    });
+    $('agentSpeedSelect').addEventListener('change', (e) => {
+      if (shortAgentPlayer) shortAgentPlayer.setRate(parseFloat(e.target.value || '1'));
+    });
+    $('agentOpenPdfPageBtn').addEventListener('click', () => {
+      if (state.currentShortVideo) {
+        openPdfPageInViewer(state.currentShortVideo.pdfPage);
+      }
+    });
+    $('agentExportWebmBtn').addEventListener('click', () => {
+      if (!shortAgentPlayer) return;
+      const btn = $('agentExportWebmBtn');
+      shortAgentPlayer.exportWebm((rec) => {
+        btn.textContent = rec ? '⏺ Запись ролика…' : '⏺ Скачать ролик (.webm)';
+        btn.disabled = rec;
+      });
+    });
+    $('agentAutoNextBtn').addEventListener('click', () => {
+      if (!state.agentProcedures.length) return;
+      const curIdx = state.agentProcedures.findIndex((p) => p.id === state.activeAgentProcId);
+      const nextProc = state.agentProcedures[(curIdx + 1) % state.agentProcedures.length];
+      if (nextProc) runAgentForProcedure(nextProc, true);
+    });
+    $('agentUploadBookBtn').addEventListener('click', () => openUploadModal());
+    $('agentProcSearchInput').addEventListener('input', renderAgentProceduresSidebar);
+    document.querySelectorAll('#agentCatPills .pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.agentCategory = btn.dataset.acat;
+        document.querySelectorAll('#agentCatPills .pill').forEach((p) => p.classList.toggle('active', p === btn));
+        renderAgentProceduresSidebar();
+      });
+    });
+    $('animateCurrentPageBtn').addEventListener('click', () => {
+      animateArbitraryBookPage(state.currentPdfPage);
+    });
+    startHandsFreeActionLoop();
     // Initialize CanvasCinemaPlayer for user-uploaded books
     if (window.ManualBookEngine) {
       cinemaPlayer = new window.ManualBookEngine.CanvasCinemaPlayer($('synthVideoCanvas'), {
