@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>МануалВидео PRO — Видеоруководства по ремонту авто и спецтехники с озвучкой</title>
-  <link rel="stylesheet" href="./styles.css?v=4" />
+  <link rel="stylesheet" href="./styles.css?v=5" />
 </head>
 <body>
   <!-- Верхняя шапка -->
@@ -55,8 +55,8 @@
         <span class="tab-count" id="guidesCountBadge">4 MP4</span>
       </button>
       <button class="nav-tab" data-tab="agent">
-        <span>🤖 ИИ-Агент: Живые Shorts</span>
-        <span class="tab-count badge-hot" id="agentOpsCountBadge">Анимация</span>
+        <span>🤖 ИИ-Агент: Текст → Видео</span>
+        <span class="tab-count badge-hot" id="agentOpsCountBadge">0% сканов</span>
       </button>
       <button class="nav-tab" data-tab="catalog">
         <span>🚜 Каталог и Мои книги</span>
@@ -174,18 +174,14 @@
               </div>
             </div>
 
-            <!-- Галерея шагов текущего этапа -->
+            <!-- Синтезированная сцена шагов текущего этапа (0% картинок из книги) -->
             <div class="hf-photo-stage">
               <div class="hf-main-photo-wrap">
-                <img id="hfCurrentPhoto" src="" alt="Фото шага ремонта" />
-                <button class="zoom-photo-btn" id="hfZoomBtn" title="Увеличить фото на весь экран">🔍 Увеличить</button>
+                <canvas id="hfSyntheticStageCanvas" width="680" height="480"></canvas>
                 <div class="hf-step-counter-badge" id="hfStepCounterBadge">Шаг 1</div>
               </div>
               <div class="hf-step-details">
                 <div class="hf-step-caption" id="hfStepCaption"></div>
-                <div class="hf-live-anim-wrap">
-                  <canvas id="hfLiveActionCanvas" width="420" height="190"></canvas>
-                </div>
                 <div class="hf-meta-boxes">
                   <div class="hf-meta-box info">
                     <span class="meta-lbl">ИНСТРУМЕНТ / ОПЕРАЦИЯ</span>
@@ -258,33 +254,65 @@
       </div>
     </section>
 
-    <!-- ВКЛАДКА 1Б: ИИ-АГЕНТ АНАЛИЗА КНИГИ И СОЗДАНИЯ КОРОТКИХ ЦВЕТНЫХ ВИДЕО -->
+    <!-- ВКЛАДКА 1Б: ИИ-АГЕНТ АНАЛИЗА ТЕКСТА И СИНТЕЗА ВИДЕО БЕЗ КАРТИНОК ИЗ КНИГИ -->
     <section class="tab-panel" id="tab-agent">
       <div class="section-intro">
         <div>
-          <h1>🤖 ИИ-Агент книги: Живые цветные анимации каждого действия (Shorts &amp; HD)</h1>
+          <h1>🤖 ИИ-Агент «Текст → Видео»: Синтез цветных анимаций без картинок из книги</h1>
           <p>
-            Агент автоматически сканирует всю активную книгу, находит пошаговые операции ремонта, <strong>раскрашивает ч/б и тусклые иллюстрации в цвет</strong> и <strong>оживляет каждое механическое действие в 60 FPS</strong> (вращение ключей, динамометрическая затяжка, слив/залив жидкостей, метки ГРМ, демонтаж и замеры) с дикторской озвучкой и караоке-субтитрами.
+            Агент читает <strong>только текст</strong> (из любого раздела книги или вставленный вами вручную), выделяет агрегат, детали, слесарный инструмент, моменты затяжки и последовательность движений, а затем <strong>с нуля генерирует цветную анимированную 3D/2.5D-сцену каждого шага (0% сканов и вырезок из книги)</strong> с озвучкой и субтитрами.
           </p>
         </div>
         <div class="agent-hero-btns">
-          <button class="btn-primary" id="agentAutoNextBtn">⚡ Оживить следующую операцию</button>
-          <button class="btn-secondary" id="agentUploadBookBtn">📥 Загрузить другую книгу (PDF)</button>
+          <button class="btn-primary" id="agentAutoNextBtn">⚡ Следующий текст из книги</button>
+          <button class="btn-secondary" id="agentUploadBookBtn">📥 Загрузить книгу (PDF)</button>
+        </div>
+      </div>
+
+      <!-- Студия ввода произвольного текста ремонта -> Видео -->
+      <div class="agent-custom-text-card">
+        <div class="agent-custom-head">
+          <div>
+            <h3>📝 Вставьте любой текст ремонта — агент проанализирует его и сгенерирует видео</h3>
+            <p class="side-hint">Никакие картинки из книги не используются: визуальный ряд строится автоматически по смыслу каждого предложения.</p>
+          </div>
+          <div class="agent-preset-pills">
+            <button type="button" class="btn-ghost-sm agent-preset-btn" data-preset="thermostat">🧊 Термостат и антифриз</button>
+            <button type="button" class="btn-ghost-sm agent-preset-btn" data-preset="alternator">🔋 АКБ и генератор</button>
+            <button type="button" class="btn-ghost-sm agent-preset-btn" data-preset="suspension">🛞 Шаровая опора</button>
+            <button type="button" class="btn-ghost-sm agent-preset-btn" data-preset="hydraulics">🚜 Гидроцилиндр спецтехники</button>
+          </div>
+        </div>
+        <div class="agent-custom-inputs">
+          <input type="text" id="agentCustomTitleInput" placeholder="Заголовок операции (например: Замена термостата системы охлаждения)" />
+          <textarea id="agentCustomTextInput" rows="3" placeholder="Вставьте пошаговый текст инструкции (например: 1. Слейте охлаждающую жидкость из радиатора в чистую емкость. 2. Ослабьте хомут пассатижами и отсоедините шланг. 3. Выверните болты головкой на 8 и снимите термостат. 4. Затяните болты моментом 10 Н·м.)"></textarea>
+          <div class="agent-custom-actions">
+            <button type="button" class="btn-primary" id="agentSynthesizeTextBtn">🎬 Проанализировать текст и сгенерировать видео</button>
+            <div class="agent-nlu-chips" id="agentNluChipsBar"></div>
+          </div>
         </div>
       </div>
 
       <!-- Консоль фаз работы ИИ-Агента -->
       <div class="agent-pipeline-bar" id="agentPipelineBar">
         <div class="agent-phase-pill active" id="agentPhaseIndicator">🤖 Агент готов</div>
-        <div class="agent-phase-msg" id="agentStatusMessage">Выберите любую операцию из книги слева — агент мгновенно раскрасит кадры и оживит каждое действие.</div>
+        <div class="agent-phase-msg" id="agentStatusMessage">Выберите текстовую операцию слева или вставьте свой текст выше — агент синтезирует видео без картинок книги.</div>
+      </div>
+
+      <!-- Баннер готового серверного MP4 (появляется после рендера на сервере) -->
+      <div class="agent-mp4-banner hidden" id="agentMp4ResultBanner">
+        <span id="agentMp4ResultText">✅ Серверный MP4-файл сгенерирован по тексту!</span>
+        <div class="agent-mp4-banner-btns">
+          <a id="agentMp4DownloadLink" class="btn-primary btn-sm-export" href="#" download>⬇ Скачать готовый .MP4</a>
+        </div>
       </div>
 
       <div class="agent-studio-grid">
-        <!-- Левая колонка: Найденные агентом операции активной книги -->
+        <!-- Левая колонка: Текстовые операции из активной книги -->
         <aside class="agent-ops-sidebar">
           <div class="agent-ops-head">
-            <h3>Найдено операций в книге: <span id="agentTotalFoundCount">0</span></h3>
-            <input type="search" id="agentProcSearchInput" placeholder="Найти операцию (генератор, термостат, стойка, тормоза…)" />
+            <h3>Текстовые операции книги: <span id="agentTotalFoundCount">0</span></h3>
+            <input type="search" id="agentProcSearchInput" placeholder="Найти по тексту (генератор, термостат, стойка, тормоза…)" />
             <div class="filter-pills compact-pills" id="agentCatPills">
               <button class="pill active" data-acat="all">Все</button>
               <button class="pill" data-acat="engine">ДВС и ГРМ</button>
@@ -296,7 +324,7 @@
           <div class="agent-ops-list" id="agentProceduresList"></div>
         </aside>
 
-        <!-- Правая колонка: Цветной 60 FPS плеер коротких видео + Таймлайн оживлённых действий -->
+        <!-- Правая колонка: Чистый синтезированный 60 FPS плеер + Таймлайн действий -->
         <div class="agent-player-main">
           <div class="agent-toolbar">
             <div class="mode-switch">
@@ -304,9 +332,9 @@
               <button class="mode-btn" id="agentAspect169Btn">🖥 16:9 Широкий HD</button>
             </div>
             <div class="agent-toolbar-right">
-              <label class="check-pill">
-                <input type="checkbox" id="agentColorizeToggle" checked />
-                <span>🎨 ИИ-Раскраска кадров</span>
+              <label class="check-pill" title="Переключить между гибридной 3D-сценой агрегата и чистым векторным инженерным CAD-чертежом (оба режима — 0% картинок из книги)">
+                <input type="checkbox" id="agentPureCadToggle" />
+                <span>📐 Чистый векторный CAD</span>
               </label>
               <label class="speed-label">Темп:
                 <select id="agentSpeedSelect">
@@ -315,8 +343,8 @@
                   <option value="1.2">1.2×</option>
                 </select>
               </label>
-              <button class="btn-ghost-sm" id="agentOpenPdfPageBtn">📄 Стр. книги</button>
-              <button class="btn-primary btn-sm-export" id="agentExportWebmBtn">⏺ Скачать ролик (.webm)</button>
+              <button class="btn-secondary btn-sm-export" id="agentGenerateMp4Btn" title="Сгенерировать полноценный H.264 .mp4 видеофайл по текущему тексту">🎬 Создать .MP4</button>
+              <button class="btn-primary btn-sm-export" id="agentExportWebmBtn">⏺ Скачать .webm</button>
             </div>
           </div>
 
@@ -330,13 +358,13 @@
               </div>
             </div>
 
-            <!-- Пошаговый список оживленных действий текущего ролика -->
+            <!-- Пошаговый список синтезированных сцен текущего ролика -->
             <div class="agent-steps-panel">
               <div class="side-card-head">
-                <h3>⚡ Оживлённые действия ролика</h3>
+                <h3>⚡ Синтезированные сцены по тексту</h3>
                 <span class="checklist-counter" id="agentStepsCountPill">0 шагов</span>
               </div>
-              <p class="side-hint">Нажмите на любой шаг, чтобы перейти к его цветной анимации и озвучке:</p>
+              <p class="side-hint">Агент разбил текст на шаги и создал анимацию для каждого действия:</p>
               <div class="agent-steps-timeline" id="agentStepsTimeline"></div>
             </div>
           </div>
@@ -420,8 +448,8 @@
               <button class="btn-ghost-sm" id="pdfNextPageBtn">Вперед ▶</button>
             </div>
             <div class="bv-zoom">
-              <button class="btn-primary btn-animate-page" id="animateCurrentPageBtn" title="Запустить ИИ-Агента на этой странице и создать цветное анимированное короткое видео">
-                ⚡ Оживить страницу в видео
+              <button class="btn-primary btn-animate-page" id="animateCurrentPageBtn" title="ИИ-Агент проанализирует только текст этой страницы и синтезирует цветное видео без сканов книги">
+                🎬 Видео по тексту стр.
               </button>
               <button class="btn-ghost-sm" id="zoomOutPdfBtn">−</button>
               <span id="pdfZoomLabel">100%</span>
@@ -666,9 +694,9 @@
     </div>
   </div>
 
-  <script src="./vendor/pdfjs/pdf.min.js?v=4"></script>
-  <script src="./video-agent.js?v=4"></script>
-  <script src="./book-uploader.js?v=4"></script>
-  <script src="./app.js?v=4"></script>
+  <script src="./vendor/pdfjs/pdf.min.js?v=5"></script>
+  <script src="./video-agent.js?v=5"></script>
+  <script src="./book-uploader.js?v=5"></script>
+  <script src="./app.js?v=5"></script>
 </body>
 </html>

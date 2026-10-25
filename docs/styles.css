@@ -2213,3 +2213,129 @@ button, input, select {
   line-height: 1.38;
 }
 
+/* Pure Text-to-Video Studio Card & Synthetic Hands-Free Canvas */
+.agent-custom-text-card {
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.96), rgba(15, 23, 42, 0.96));
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+}
+
+.agent-custom-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.agent-custom-head h3 {
+  font-size: 1rem;
+  margin-bottom: 3px;
+}
+
+.agent-preset-pills {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.agent-custom-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.agent-custom-inputs input,
+.agent-custom-inputs textarea {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.agent-custom-inputs input:focus,
+.agent-custom-inputs textarea:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.agent-custom-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.agent-nlu-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.nlu-chip {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+}
+
+.agent-mp4-banner {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #d1fae5;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+#hfSyntheticStageCanvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  background: #080e1c;
+}
+
+.hf-step-num-pill {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hf-step-num-pill:hover {
+  border-color: #38bdf8;
+  color: var(--text-main);
+}
+
+.hf-step-num-pill.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #090e1a;
+}
+
+
