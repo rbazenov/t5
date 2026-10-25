@@ -1156,10 +1156,18 @@
       ctx.font = 'bold 13px Inter, system-ui, sans-serif';
       drawWrappedText(ctx, ch.warning, 62, 590, 372, 18, 2);
 
-      // Right Stage Viewport with Smooth Ken Burns Motion
+      // Right Stage Viewport with Vivid Colorization + 60 FPS Action Animation
       roundRect(ctx, 490, 94, 762, 562, 14, '#111827', '#26334d');
       const imgObj = this.imageCache.get(step.image);
+      const agent = window.BookVideoAgent;
+      const stepAction = agent
+        ? agent.classifyMechanicalAction(step.caption, step.tool, ch.keyMetric)
+        : null;
+
       if (imgObj && imgObj.width > 0) {
+        const displayImg = agent
+          ? agent.colorizeBookCanvas(imgObj, `${g.slug}_${globalStepNum}`, true)
+          : imgObj;
         ctx.save();
         ctx.beginPath();
         if (ctx.roundRect) {
@@ -1171,18 +1179,28 @@
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(504, 108, 734, 534);
 
-        const zoom = 1.0 + 0.065 * stepLocalProg;
-        const baseScale = Math.min(714 / imgObj.width, 514 / imgObj.height);
-        const dw = imgObj.width * baseScale * zoom;
-        const dh = imgObj.height * baseScale * zoom;
+        const zoom = 1.02 + 0.08 * stepLocalProg;
+        const baseScale = Math.min(714 / displayImg.width, 514 / displayImg.height);
+        const dw = displayImg.width * baseScale * zoom;
+        const dh = displayImg.height * baseScale * zoom;
         const dx = 504 + (734 - dw) / 2;
         const dy = 108 + (534 - dh) / 2;
-        ctx.drawImage(imgObj, dx, dy, dw, dh);
+        ctx.drawImage(displayImg, dx, dy, dw, dh);
         ctx.restore();
       } else {
         ctx.fillStyle = '#64748b';
         ctx.font = '16px Inter, system-ui, sans-serif';
         ctx.fillText('Загрузка иллюстрации из PDF…', 770, 375);
+      }
+
+      if (agent && stepAction) {
+        agent.drawAnimatedMechanismBox(
+          ctx,
+          { x: 842, y: 422, w: 396, h: 218 },
+          stepAction,
+          this.currentTime,
+          stepLocalProg
+        );
       }
 
       // Bottom Progress Bar

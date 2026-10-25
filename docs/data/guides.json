@@ -21,7 +21,7 @@
       "Duratec-HE 2.0"
     ],
     "videoUrl": "/media/videos/oil-change.mp4",
-    "posterUrl": "/media/steps/oil_s09.jpg",
+    "posterUrl": "/media/posters/oil-hero.jpg",
     "totalDuration": 122.36,
     "tools": [
       "Ключ или головка «на 13» (сливная пробка)",
@@ -63,25 +63,37 @@
             "num": 1,
             "image": "/media/steps/oil_s01.jpg",
             "caption": "Прогрейте двигатель и отверните пробку маслоналивной горловины.",
-            "tool": "Вручную"
+            "tool": "Вручную",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 2,
             "image": "/media/steps/oil_s02.jpg",
             "caption": "Очистите металлической щеткой и ветошью сливную пробку масляного картера.",
-            "tool": "Металлическая щетка"
+            "tool": "Металлическая щетка",
+            "actionKind": "clean_surface",
+            "actionLabel": "ОЧИСТКА ПОСАДОЧНОЙ ПОВЕРХНОСТИ",
+            "actionVal": "ЧИСТО ✓"
           },
           {
             "num": 3,
             "image": "/media/steps/oil_s03.jpg",
             "caption": "Ослабьте затяжку пробки сливного отверстия поддона.",
-            "tool": "Ключ «на 13»"
+            "tool": "Ключ «на 13»",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 4,
             "image": "/media/steps/oil_s04.jpg",
             "caption": "Подставьте емкость (от 5 л), выверните пробку, слейте масло и заверните пробку (28 Н·м).",
-            "tool": "Емкость ≥ 5 л, динамометрический ключ"
+            "tool": "Емкость ≥ 5 л, динамометрический ключ",
+            "actionKind": "drain_fluid",
+            "actionLabel": "СЛИВ МАСЛА • 28 Н·м",
+            "actionVal": "28 Н·м"
           }
         ],
         "index": 1,
@@ -101,25 +113,37 @@
             "num": 5,
             "image": "/media/steps/oil_s05.jpg",
             "caption": "Строньте с места масляный фильтр специальным ключом.",
-            "tool": "Съемник масляного фильтра"
+            "tool": "Съемник масляного фильтра",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 6,
             "image": "/media/steps/oil_s06.jpg",
             "caption": "Отверните фильтр рукой и аккуратно снимите его, придерживая снизу ветошью.",
-            "tool": "Обтирочная ткань"
+            "tool": "Обтирочная ткань",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 7,
             "image": "/media/steps/oil_s07.jpg",
             "caption": "При отсутствии чашки-съемника используйте универсальный краб-съемник.",
-            "tool": "Универсальный съемник"
+            "tool": "Универсальный съемник",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 8,
             "image": "/media/steps/oil_s08.jpg",
             "caption": "Насухо протрите привалочную поверхность фланца на блоке цилиндров.",
-            "tool": "Чистая безворсовая ткань"
+            "tool": "Чистая безворсовая ткань",
+            "actionKind": "clean_surface",
+            "actionLabel": "ОЧИСТКА ПОСАДОЧНОЙ ПОВЕРХНОСТИ",
+            "actionVal": "ЧИСТО ✓"
           }
         ],
         "index": 2,
@@ -139,19 +163,28 @@
             "num": 9,
             "image": "/media/steps/oil_s09.jpg",
             "caption": "Заполните новый фильтр примерно на 1/3 объема свежим моторным маслом.",
-            "tool": "Ford Formula E 5W-30"
+            "tool": "Ford Formula E 5W-30",
+            "actionKind": "fill_fluid",
+            "actionLabel": "ЗАЛИВКА СВЕЖЕГО МАСЛА 5W-30",
+            "actionVal": "3,8–4,35 л"
           },
           {
             "num": 10,
             "image": "/media/steps/oil_s10.jpg",
             "caption": "Смажьте резиновое кольцо маслом и заверните фильтр руками на 3/4 оборота после касания.",
-            "tool": "Только вручную (3/4 об.)"
+            "tool": "Только вручную (3/4 об.)",
+            "actionKind": "lubricate",
+            "actionLabel": "СМАЗКА УПЛОТНИТЕЛЬНОГО КОЛЬЦА + ЗАТЯЖКА",
+            "actionVal": "+3/4 об."
           },
           {
             "num": 11,
             "image": "/media/steps/oil_s11.jpg",
             "caption": "Залейте чистое моторное масло (1.4 л — 3,8 л; 1.6 л — 4,25 л; 1.3 л — 4,35 л; 2.0 л — 4,3 л).",
-            "tool": "Воронка, канистра 5W-30"
+            "tool": "Воронка, канистра 5W-30",
+            "actionKind": "fill_fluid",
+            "actionLabel": "ЗАЛИВКА СВЕЖЕГО МАСЛА 5W-30",
+            "actionVal": "3,8–4,35 л"
           }
         ],
         "index": 3,
@@ -171,19 +204,28 @@
             "num": 12,
             "image": "/media/steps/oil_s12.jpg",
             "caption": "Подождите 3–5 минут, извлеките масляный щуп, протрите его насухо и вставьте обратно.",
-            "tool": "Чистая салфетка"
+            "tool": "Чистая салфетка",
+            "actionKind": "dipstick_check",
+            "actionLabel": "КОНТРОЛЬ УРОВНЯ MIN–MAX",
+            "actionVal": "НОРМА ✓"
           },
           {
             "num": 13,
             "image": "/media/steps/oil_s13.jpg",
             "caption": "Повторно выньте щуп: пленка масла должна находиться строго между метками MIN и MAX.",
-            "tool": "Контроль MIN–MAX"
+            "tool": "Контроль MIN–MAX",
+            "actionKind": "dipstick_check",
+            "actionLabel": "КОНТРОЛЬ УРОВНЯ MIN–MAX",
+            "actionVal": "НОРМА ✓"
           },
           {
             "num": 14,
             "image": "/media/steps/oil_s14.jpg",
             "caption": "Закройте горловину, запустите ДВС (лампа гаснет за 2–3 с) и проверьте отсутствие утечек.",
-            "tool": "Осмотр на холостом ходу"
+            "tool": "Осмотр на холостом ходу",
+            "actionKind": "dipstick_check",
+            "actionLabel": "КОНТРОЛЬ УРОВНЯ MIN–MAX",
+            "actionVal": "НОРМА ✓"
           }
         ],
         "index": 4,
@@ -212,7 +254,7 @@
       "Все модификации Fiesta / Fusion"
     ],
     "videoUrl": "/media/videos/brake-pads.mp4",
-    "posterUrl": "/media/steps/brakes_s05.jpg",
+    "posterUrl": "/media/posters/brakes-hero.jpg",
     "totalDuration": 96.39,
     "tools": [
       "Шестигранник «на 7» (направляющие пальцы суппорта)",
@@ -257,19 +299,28 @@
             "num": 1,
             "image": "/media/steps/brakes_s01.jpg",
             "caption": "Устройство переднего тормоза: колодки (1, 2), скоба (3), пружина (4), суппорт (5), пальцы (8, 9).",
-            "tool": "Схема узла (рис. 9.6)"
+            "tool": "Схема узла (рис. 9.6)",
+            "actionKind": "inspect_node",
+            "actionLabel": "ТЕХНИЧЕСКИЙ ОСМОТР И СХЕМА УЗЛА",
+            "actionVal": "КОНТРОЛЬ ✓"
           },
           {
             "num": 2,
             "image": "/media/steps/brakes_s02.jpg",
             "caption": "Утопите поршень большой отверткой и извлеките концы пружинного фиксатора из суппорта.",
-            "tool": "Большая плоская отвертка"
+            "tool": "Большая плоская отвертка",
+            "actionKind": "press_piston",
+            "actionLabel": "УТАПЛИВАНИЕ ПОРШНЯ И СНЯТИЕ СКОБЫ",
+            "actionVal": "ПЛАВНО ▼"
           },
           {
             "num": 3,
             "image": "/media/steps/brakes_s03.jpg",
             "caption": "Снимите пружинный фиксатор наружной колодки и оцените его целостность.",
-            "tool": "Осмотр пружины"
+            "tool": "Осмотр пружины",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           }
         ],
         "index": 1,
@@ -289,31 +340,46 @@
             "num": 4,
             "image": "/media/steps/brakes_s04.jpg",
             "caption": "Подденьте отверткой и снимите защитные колпачки направляющих пальцев суппорта.",
-            "tool": "Тонкая отвертка"
+            "tool": "Тонкая отвертка",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 5,
             "image": "/media/steps/brakes_s05.jpg",
             "caption": "Шестигранником «на 7» выверните и извлеките нижний и верхний направляющие пальцы.",
-            "tool": "Шестигранник «на 7»"
+            "tool": "Шестигранник «на 7»",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 6,
             "image": "/media/steps/brakes_s06.jpg",
             "caption": "Снимите суппорт с направляющей скобы, не допуская перекручивания и натяжения шланга.",
-            "tool": "Подвес для суппорта"
+            "tool": "Подвес для суппорта",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 7,
             "image": "/media/steps/brakes_s07.jpg",
             "caption": "Извлеките внутреннюю тормозную колодку (с трехлепестковой пружиной) из поршня.",
-            "tool": "Вручную"
+            "tool": "Вручную",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 8,
             "image": "/media/steps/brakes_s08.jpg",
             "caption": "Снимите наружную тормозную колодку, выводя ее из пазов направляющей скобы.",
-            "tool": "Очистка пазов скобы"
+            "tool": "Очистка пазов скобы",
+            "actionKind": "clean_surface",
+            "actionLabel": "ОЧИСТКА ПОСАДОЧНОЙ ПОВЕРХНОСТИ",
+            "actionVal": "ЧИСТО ✓"
           }
         ],
         "index": 2,
@@ -333,7 +399,10 @@
             "num": 9,
             "image": "/media/steps/brakes_s09.jpg",
             "caption": "Сверьте маркировку колодок, смажьте резьбу пальцев фиксатором резьбы (28 Н·м), прокачайте педаль.",
-            "tool": "Фиксатор резьбы, ключ 28 Н·м"
+            "tool": "Фиксатор резьбы, ключ 28 Н·м",
+            "actionKind": "torque_cw",
+            "actionLabel": "ДИНАМОМЕТРИЧЕСКАЯ ЗАТЯЖКА • 28 Н·м",
+            "actionVal": "28 Н·м"
           }
         ],
         "index": 3,
@@ -362,7 +431,7 @@
       "Duratec 1.6 (100 л.с.)"
     ],
     "videoUrl": "/media/videos/timing-belt.mp4",
-    "posterUrl": "/media/steps/belt_s11.jpg",
+    "posterUrl": "/media/posters/belt-hero.jpg",
     "totalDuration": 90.62,
     "tools": [
       "Фиксирующий спецболт КВ М10×1,5 (длина стержня 38,3 мм)",
@@ -412,49 +481,73 @@
             "num": 1,
             "image": "/media/steps/belt_s01.jpg",
             "caption": "Поднимите передок, снимите правое колесо и нижний брызговик двигателя.",
-            "tool": "Подъемник, головки «на 8/10»"
+            "tool": "Подъемник, головки «на 8/10»",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 2,
             "image": "/media/steps/belt_s02.jpg",
             "caption": "Разрежьте ножом одноразовые эластичные ремни привода ГУР и вспомогательных агрегатов.",
-            "tool": "Монтажный нож"
+            "tool": "Монтажный нож",
+            "actionKind": "belt_timing",
+            "actionLabel": "СИНХРОНИЗАЦИЯ ФАЗ И ПРИВОД ГРМ",
+            "actionVal": "ВМТ LOCK ✓"
           },
           {
             "num": 3,
             "image": "/media/steps/belt_s03.jpg",
             "caption": "Выставьте ВМТ 1-го цилиндра: уприте коленвал в спецболт М10×1,5 и вставьте планку в распредвалы.",
-            "tool": "Набор фиксаторов Ford"
+            "tool": "Набор фиксаторов Ford",
+            "actionKind": "belt_timing",
+            "actionLabel": "СИНХРОНИЗАЦИЯ ФАЗ И ПРИВОД ГРМ",
+            "actionVal": "ВМТ LOCK ✓"
           },
           {
             "num": 4,
             "image": "/media/steps/belt_s04.jpg",
             "caption": "Удерживая тормоз на V передаче (с помощником), выверните болт шкива коленвала.",
-            "tool": "Головка «на 18»"
+            "tool": "Головка «на 18»",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 5,
             "image": "/media/steps/belt_s05.jpg",
             "caption": "Извлеките болт (он одноразовый!) и снимите шкив коленчатого вала.",
-            "tool": "Новый болт шкива"
+            "tool": "Новый болт шкива",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 6,
             "image": "/media/steps/belt_s06.jpg",
             "caption": "Снимите шкив водяного насоса (4 болта) и выверните 9 болтов верхней крышки ГРМ.",
-            "tool": "Головка «на 8», «на 10»"
+            "tool": "Головка «на 8», «на 10»",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 7,
             "image": "/media/steps/belt_s07.jpg",
             "caption": "Расположение 9 точек крепления верхней защитной крышки ремня ГРМ.",
-            "tool": "Схема крепежа"
+            "tool": "Схема крепежа",
+            "actionKind": "inspect_node",
+            "actionLabel": "ТЕХНИЧЕСКИЙ ОСМОТР И СХЕМА УЗЛА",
+            "actionVal": "КОНТРОЛЬ ✓"
           },
           {
             "num": 8,
             "image": "/media/steps/belt_s08.jpg",
             "caption": "Снимите нижнюю крышку ГРМ, вывесите двигатель, снимите правую опору и ее кронштейн.",
-            "tool": "Домкрат под ДВС, TORX E8, «на 13»"
+            "tool": "Домкрат под ДВС, TORX E8, «на 13»",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           }
         ],
         "index": 1,
@@ -474,31 +567,46 @@
             "num": 9,
             "image": "/media/steps/belt_s09.jpg",
             "caption": "Пассатижами поверните подвижную лапку натяжного ролика по часовой стрелке до совмещения отверстий.",
-            "tool": "Пассатижи"
+            "tool": "Пассатижи",
+            "actionKind": "tensioner_pin",
+            "actionLabel": "ВЗВОД РОЛИКА И СТОПОРНЫЙ ШТИФТ",
+            "actionVal": "ШТИФТ ✓"
           },
           {
             "num": 10,
             "image": "/media/steps/belt_s10.jpg",
             "caption": "Вставьте фиксирующий штифт в совмещенные отверстия натяжного ролика.",
-            "tool": "Фиксирующий штифт"
+            "tool": "Фиксирующий штифт",
+            "actionKind": "tensioner_pin",
+            "actionLabel": "ВЗВОД РОЛИКА И СТОПОРНЫЙ ШТИФТ",
+            "actionVal": "ШТИФТ ✓"
           },
           {
             "num": 11,
             "image": "/media/steps/belt_s11.jpg",
             "caption": "Снимите старый ремень ГРМ со шкивов (валы остаются зафиксированными).",
-            "tool": "Без вращения валов!"
+            "tool": "Без вращения валов!",
+            "actionKind": "belt_timing",
+            "actionLabel": "СИНХРОНИЗАЦИЯ ФАЗ И ПРИВОД ГРМ",
+            "actionVal": "ВМТ LOCK ✓"
           },
           {
             "num": 12,
             "image": "/media/steps/belt_s12.jpg",
             "caption": "Замените натяжной ролик (25 Н·м), уложите ремень: выпуск → впуск → КВ → ролик, выньте штифт.",
-            "tool": "Момент 25 Н·м"
+            "tool": "Момент 25 Н·м",
+            "actionKind": "torque_cw",
+            "actionLabel": "ДИНАМОМЕТРИЧЕСКАЯ ЗАТЯЖКА • 25 Н·м",
+            "actionVal": "25 Н·м"
           },
           {
             "num": 13,
             "image": "/media/steps/belt_s13.jpg",
             "caption": "Затяните шкив КВ (45 Н·м + 90°), сделайте 2 оборота КВ и проверьте свободный вход планки в распредвалы.",
-            "tool": "Динамометр + угломер 90°"
+            "tool": "Динамометр + угломер 90°",
+            "actionKind": "torque_cw",
+            "actionLabel": "ДИНАМОМЕТРИЧЕСКАЯ ЗАТЯЖКА • 45 Н·м + 90°",
+            "actionVal": "45 Н·м + 90°"
           }
         ],
         "index": 2,
@@ -528,7 +636,7 @@
       "Duratec-HE 2.0"
     ],
     "videoUrl": "/media/videos/spark-plugs.mp4",
-    "posterUrl": "/media/steps/plugs_s05.jpg",
+    "posterUrl": "/media/posters/spark-hero.jpg",
     "totalDuration": 44.83,
     "tools": [
       "Свечной ключ «на 16» с резиновой удерживающей втулкой",
@@ -569,37 +677,55 @@
             "num": 1,
             "image": "/media/steps/plugs_s01.jpg",
             "caption": "Снимите корпус воздушного фильтра для доступа к свечным колодцам ГБЦ.",
-            "tool": "Головка «на 8», отвертка"
+            "tool": "Головка «на 8», отвертка",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 2,
             "image": "/media/steps/plugs_s02.jpg",
             "caption": "Снимите высоковольтные наконечники и тщательно продуйте свечные колодцы сжатым воздухом.",
-            "tool": "Пневмопистолет"
+            "tool": "Пневмопистолет",
+            "actionKind": "air_blow",
+            "actionLabel": "ПРОДУВКА КОЛОДЦЕВ СЖАТЫМ ВОЗДУХОМ",
+            "actionVal": "6 бар"
           },
           {
             "num": 3,
             "image": "/media/steps/plugs_s03.jpg",
             "caption": "Выверните свечу зажигания специальным свечным ключом «на 16» с резиновой втулкой.",
-            "tool": "Свечной ключ «на 16»"
+            "tool": "Свечной ключ «на 16»",
+            "actionKind": "unscrew_ccw",
+            "actionLabel": "ОТВОРАЧИВАНИЕ КРЕПЕЖА ↺",
+            "actionVal": "↺ ПРОТИВ ЧАС."
           },
           {
             "num": 4,
             "image": "/media/steps/plugs_s04.jpg",
             "caption": "Извлеките свечу из колодца и оцените цвет нагара на изоляторе.",
-            "tool": "Диагностика сгорания"
+            "tool": "Диагностика сгорания",
+            "actionKind": "remove_part",
+            "actionLabel": "ДЕМОНТАЖ И ИЗВЛЕЧЕНИЕ УЗЛА",
+            "actionVal": "СНЯТИЕ ▲"
           },
           {
             "num": 5,
             "image": "/media/steps/plugs_s05.jpg",
             "caption": "Круглым щупом проверьте искровой зазор между электродами — норма 1,3 мм.",
-            "tool": "Круглый щуп 1,3 мм"
+            "tool": "Круглый щуп 1,3 мм",
+            "actionKind": "measure_gap",
+            "actionLabel": "КОНТРОЛЬ ЗАЗОРА • 1,3 мм",
+            "actionVal": "1,3 мм"
           },
           {
             "num": 6,
             "image": "/media/steps/plugs_s06.jpg",
             "caption": "При необходимости подогните боковой электрод, вверните свечи от руки и затяните моментом 15 Н·м.",
-            "tool": "Момент затяжки 15 Н·м"
+            "tool": "Момент затяжки 15 Н·м",
+            "actionKind": "torque_cw",
+            "actionLabel": "ДИНАМОМЕТРИЧЕСКАЯ ЗАТЯЖКА • 15 Н·м",
+            "actionVal": "15 Н·м"
           }
         ],
         "index": 1,

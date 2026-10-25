@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>МануалВидео PRO — Видеоруководства по ремонту авто и спецтехники с озвучкой</title>
-  <link rel="stylesheet" href="./styles.css?v=3" />
+  <link rel="stylesheet" href="./styles.css?v=4" />
 </head>
 <body>
   <!-- Верхняя шапка -->
@@ -53,6 +53,10 @@
       <button class="nav-tab active" data-tab="player">
         <span>🎬 Видеогиды с озвучкой</span>
         <span class="tab-count" id="guidesCountBadge">4 MP4</span>
+      </button>
+      <button class="nav-tab" data-tab="agent">
+        <span>🤖 ИИ-Агент: Живые Shorts</span>
+        <span class="tab-count badge-hot" id="agentOpsCountBadge">Анимация</span>
       </button>
       <button class="nav-tab" data-tab="catalog">
         <span>🚜 Каталог и Мои книги</span>
@@ -179,6 +183,9 @@
               </div>
               <div class="hf-step-details">
                 <div class="hf-step-caption" id="hfStepCaption"></div>
+                <div class="hf-live-anim-wrap">
+                  <canvas id="hfLiveActionCanvas" width="420" height="190"></canvas>
+                </div>
                 <div class="hf-meta-boxes">
                   <div class="hf-meta-box info">
                     <span class="meta-lbl">ИНСТРУМЕНТ / ОПЕРАЦИЯ</span>
@@ -248,6 +255,92 @@
             <div class="checklist-items" id="guideChecklist"></div>
           </div>
         </aside>
+      </div>
+    </section>
+
+    <!-- ВКЛАДКА 1Б: ИИ-АГЕНТ АНАЛИЗА КНИГИ И СОЗДАНИЯ КОРОТКИХ ЦВЕТНЫХ ВИДЕО -->
+    <section class="tab-panel" id="tab-agent">
+      <div class="section-intro">
+        <div>
+          <h1>🤖 ИИ-Агент книги: Живые цветные анимации каждого действия (Shorts &amp; HD)</h1>
+          <p>
+            Агент автоматически сканирует всю активную книгу, находит пошаговые операции ремонта, <strong>раскрашивает ч/б и тусклые иллюстрации в цвет</strong> и <strong>оживляет каждое механическое действие в 60 FPS</strong> (вращение ключей, динамометрическая затяжка, слив/залив жидкостей, метки ГРМ, демонтаж и замеры) с дикторской озвучкой и караоке-субтитрами.
+          </p>
+        </div>
+        <div class="agent-hero-btns">
+          <button class="btn-primary" id="agentAutoNextBtn">⚡ Оживить следующую операцию</button>
+          <button class="btn-secondary" id="agentUploadBookBtn">📥 Загрузить другую книгу (PDF)</button>
+        </div>
+      </div>
+
+      <!-- Консоль фаз работы ИИ-Агента -->
+      <div class="agent-pipeline-bar" id="agentPipelineBar">
+        <div class="agent-phase-pill active" id="agentPhaseIndicator">🤖 Агент готов</div>
+        <div class="agent-phase-msg" id="agentStatusMessage">Выберите любую операцию из книги слева — агент мгновенно раскрасит кадры и оживит каждое действие.</div>
+      </div>
+
+      <div class="agent-studio-grid">
+        <!-- Левая колонка: Найденные агентом операции активной книги -->
+        <aside class="agent-ops-sidebar">
+          <div class="agent-ops-head">
+            <h3>Найдено операций в книге: <span id="agentTotalFoundCount">0</span></h3>
+            <input type="search" id="agentProcSearchInput" placeholder="Найти операцию (генератор, термостат, стойка, тормоза…)" />
+            <div class="filter-pills compact-pills" id="agentCatPills">
+              <button class="pill active" data-acat="all">Все</button>
+              <button class="pill" data-acat="engine">ДВС и ГРМ</button>
+              <button class="pill" data-acat="chassis">Тормоза / Ходовая</button>
+              <button class="pill" data-acat="electric">Электрика</button>
+              <button class="pill" data-acat="transmission">КПП / Кузов</button>
+            </div>
+          </div>
+          <div class="agent-ops-list" id="agentProceduresList"></div>
+        </aside>
+
+        <!-- Правая колонка: Цветной 60 FPS плеер коротких видео + Таймлайн оживлённых действий -->
+        <div class="agent-player-main">
+          <div class="agent-toolbar">
+            <div class="mode-switch">
+              <button class="mode-btn active" id="agentAspect916Btn">📱 9:16 Shorts / Reels</button>
+              <button class="mode-btn" id="agentAspect169Btn">🖥 16:9 Широкий HD</button>
+            </div>
+            <div class="agent-toolbar-right">
+              <label class="check-pill">
+                <input type="checkbox" id="agentColorizeToggle" checked />
+                <span>🎨 ИИ-Раскраска кадров</span>
+              </label>
+              <label class="speed-label">Темп:
+                <select id="agentSpeedSelect">
+                  <option value="0.9">0.9×</option>
+                  <option value="1" selected>1.0×</option>
+                  <option value="1.2">1.2×</option>
+                </select>
+              </label>
+              <button class="btn-ghost-sm" id="agentOpenPdfPageBtn">📄 Стр. книги</button>
+              <button class="btn-primary btn-sm-export" id="agentExportWebmBtn">⏺ Скачать ролик (.webm)</button>
+            </div>
+          </div>
+
+          <div class="agent-stage-split">
+            <div class="agent-canvas-stage aspect-9-16" id="agentCanvasContainer">
+              <canvas id="agentShortCanvas" width="720" height="1280"></canvas>
+              <div class="synth-transport-bar agent-transport">
+                <button class="btn-primary synth-play-btn" id="agentPlayBtn">▶ Пуск анимации с голосом</button>
+                <input type="range" id="agentScrubber" min="0" max="60" step="0.1" value="0" />
+                <span class="synth-time-lbl" id="agentTimeLabel">0:00 / 0:00</span>
+              </div>
+            </div>
+
+            <!-- Пошаговый список оживленных действий текущего ролика -->
+            <div class="agent-steps-panel">
+              <div class="side-card-head">
+                <h3>⚡ Оживлённые действия ролика</h3>
+                <span class="checklist-counter" id="agentStepsCountPill">0 шагов</span>
+              </div>
+              <p class="side-hint">Нажмите на любой шаг, чтобы перейти к его цветной анимации и озвучке:</p>
+              <div class="agent-steps-timeline" id="agentStepsTimeline"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -327,6 +420,9 @@
               <button class="btn-ghost-sm" id="pdfNextPageBtn">Вперед ▶</button>
             </div>
             <div class="bv-zoom">
+              <button class="btn-primary btn-animate-page" id="animateCurrentPageBtn" title="Запустить ИИ-Агента на этой странице и создать цветное анимированное короткое видео">
+                ⚡ Оживить страницу в видео
+              </button>
               <button class="btn-ghost-sm" id="zoomOutPdfBtn">−</button>
               <span id="pdfZoomLabel">100%</span>
               <button class="btn-ghost-sm" id="zoomInPdfBtn">+</button>
@@ -570,8 +666,9 @@
     </div>
   </div>
 
-  <script src="./vendor/pdfjs/pdf.min.js?v=3"></script>
-  <script src="./book-uploader.js?v=3"></script>
-  <script src="./app.js?v=3"></script>
+  <script src="./vendor/pdfjs/pdf.min.js?v=4"></script>
+  <script src="./video-agent.js?v=4"></script>
+  <script src="./book-uploader.js?v=4"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>
