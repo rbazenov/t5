@@ -217,9 +217,9 @@ svg{display:block;width:20px;height:20px;flex:none}
 
     <div class="facts-strip">
       <div class="shell facts-inner">
-        <div class="fact"><strong id="totalStat">2 337</strong><span>записей<br>в реестре</span></div>
-        <div class="fact"><strong>04</strong><span>категории<br>игрушек</span></div>
-        <div class="fact"><strong>03</strong><span>возрастные<br>группы</span></div>
+        <div class="fact"><strong id="totalStat">2 000</strong><span>записей<br>в реестре</span></div>
+        <div class="fact"><strong>4</strong><span>категории<br>игрушек</span></div>
+        <div class="fact"><strong>6</strong><span>возрастные<br>группы</span></div>
         <div class="facts-caption"><span class="caption-sparkle">✳</span> Игрушки, которые объединяют</div>
       </div>
     </div>
@@ -250,7 +250,7 @@ svg{display:block;width:20px;height:20px;flex:none}
       </form>
 
       <div class="results-heading" id="resultsHeading">
-        <div class="results-title"><h3>Результаты поиска <span id="resultsCount">2 337</span></h3><p id="resultsSummary">Все записи реестра</p></div>
+        <div class="results-title"><h3>Результаты поиска <span id="resultsCount">2 000</span></h3><p id="resultsSummary">Все записи реестра</p></div>
         <div class="results-actions">
           <label class="sort-wrap"><span class="sr-only">Сортировка</span><select id="sortSelect"><option value="number">По номеру</option><option value="name-asc">По названию: А–Я</option><option value="name-desc">По названию: Я–А</option></select><svg><use href="#i-chevron"></use></svg></label>
           <div class="view-toggle" aria-label="Вид результатов">
@@ -290,6 +290,7 @@ svg{display:block;width:20px;height:20px;flex:none}
   const records = sourceRows.map((row, index) => ({ id: row[0], name: row[1], category: row[2], age: row[3], number: index + 1 }));
   const recordById = new Map(records.map(record => [record.id, record]));
   const nf = new Intl.NumberFormat('ru-RU');
+  const DISPLAY_TOTAL = 2000;
   const collator = new Intl.Collator('ru', { sensitivity: 'base', numeric: true });
   const photos = new Map();
   const pageSize = 12;
@@ -378,7 +379,7 @@ svg{display:block;width:20px;height:20px;flex:none}
   function populateFilters() {
     const categories = [...new Set(records.map(record => record.category))].sort(collator.compare);
     $('categoryFilter').insertAdjacentHTML('beforeend', categories.map(text => `<option value="${escapeHTML(text)}">${escapeHTML(text)}</option>`).join(''));
-    $('totalStat').textContent = nf.format(records.length);
+    $('totalStat').textContent = nf.format(DISPLAY_TOTAL);
   }
   function applyFilters() {
     const query = normalize(state.query);
@@ -392,7 +393,8 @@ svg{display:block;width:20px;height:20px;flex:none}
   }
   function renderResults() {
     const count = state.filtered.length;
-    $('resultsCount').textContent = nf.format(count);
+    const noFilters = !(state.query || state.category || state.age);
+    $('resultsCount').textContent = nf.format(noFilters ? DISPLAY_TOTAL : count);
     $('resultsSummary').textContent = state.query || state.category || state.age ? 'По выбранным параметрам' : 'Все записи реестра';
     const first = (state.page - 1) * pageSize;
     const pageRecords = state.filtered.slice(first, first + pageSize);
