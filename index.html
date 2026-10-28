@@ -228,15 +228,15 @@ svg{display:block;width:20px;height:20px;flex:none}
       <div class="section-heading">
         <div>
           <div class="section-kicker"><span></span> КОЛЛЕКЦИЯ ПРОЕКТОВ</div>
-          <h2 id="registry-heading">Реестр продукции</h2>
-          <p>Найдите игрушку по номеру, названию, категории или возрасту.</p>
+          <h2 id="registry-heading">Реестр игр и игрушек</h2>
+          <p>Найдите игру или игрушку со знаком «Родная игрушка» по наименованию товара, производителю, артикулу, ID, идентификационному коду.</p>
         </div>
       </div>
 
       <form class="filter-panel" id="filtersForm" autocomplete="off">
         <div class="filters-grid">
           <label class="select-label" for="categoryFilter"><span>КАТЕГОРИЯ</span><span class="select-wrap"><select id="categoryFilter"><option value="">Все категории</option></select><svg><use href="#i-chevron"></use></svg></span></label>
-          <label class="select-label" for="ageFilter"><span>ВОЗРАСТНАЯ ГРУППА</span><span class="select-wrap"><select id="ageFilter"><option value="">Все возрасты</option><option value="preschool">Дошкольный возраст (0–7 лет)</option><option value="school">Школьный возраст (7–18 лет)</option><option value="all">Для всех возрастов</option></select><svg><use href="#i-chevron"></use></svg></span></label>
+          <label class="select-label" for="ageFilter"><span>ВОЗРАСТНАЯ ГРУППА</span><span class="select-wrap"><select id="ageFilter"><option value="">Все возрасты</option><option value="under1">до 1 года</option><option value="1to3">от 1 года до 3 лет</option><option value="3to6">от 3 до 6 лет</option><option value="6to10">от 6 до 10 лет</option><option value="10to14">от 10 до 14 лет</option><option value="14plus">от 14 лет и старше</option></select><svg><use href="#i-chevron"></use></svg></span></label>
           <div class="search-field">
             <div class="search-topline"><label for="searchInput">ПОИСК ПО РЕЕСТРУ</label><span>Например, РИ-000001</span></div>
             <div class="search-control">
@@ -316,6 +316,14 @@ svg{display:block;width:20px;height:20px;flex:none}
   function ageShort(age) {
     return ({ preschool: 'Дошкольный · 0–7 лет', school: 'Школьный · 7–18 лет', all: 'Для всех возрастов' })[ageKey(age)] || age;
   }
+  function ageGroups(record) {
+    switch (ageKey(record.age)) {
+      case 'preschool': return ['under1', '1to3', '3to6', '6to10'];
+      case 'school': return ['6to10', '10to14', '14plus'];
+      case 'all': return ['under1', '1to3', '3to6', '6to10', '10to14', '14plus'];
+      default: return [];
+    }
+  }
   function kindFor(category) {
     if (category.includes('Настольная')) return 'board';
     if (category.includes('Конструкторы')) return 'blocks';
@@ -383,7 +391,7 @@ svg{display:block;width:20px;height:20px;flex:none}
   }
   function applyFilters() {
     const query = normalize(state.query);
-    state.filtered = records.filter(record => matchesSearch(record, query) && (!state.category || record.category === state.category) && (!state.age || ageKey(record.age) === state.age));
+    state.filtered = records.filter(record => matchesSearch(record, query) && (!state.category || record.category === state.category) && (!state.age || ageGroups(record).includes(state.age)));
     if (state.sort === 'name-asc') state.filtered.sort((a, b) => collator.compare(a.name, b.name) || a.number - b.number);
     else if (state.sort === 'name-desc') state.filtered.sort((a, b) => collator.compare(b.name, a.name) || a.number - b.number);
     else state.filtered.sort((a, b) => a.number - b.number);
